@@ -1,18 +1,62 @@
-<!doctype html><html lang="th"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>FlowStock</title><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><style>
-*{box-sizing:border-box}body{margin:0;font-family:Arial,"Noto Sans Thai",sans-serif;background:#f6f7f9;color:#20242a}.top{height:64px;background:white;border-bottom:1px solid #e5e7eb;display:flex;align-items:center;padding:0 24px;justify-content:space-between}.brand{font-weight:800;font-size:22px}.brand small{display:block;font-size:11px;font-weight:500;color:#6b7280}.wrap{max-width:1180px;margin:auto;padding:24px}.login{max-width:420px;margin:70px auto;background:white;padding:30px;border:1px solid #e5e7eb;border-radius:18px;box-shadow:0 8px 30px #0000000a}.login h1{margin:0 0 6px}.muted{color:#6b7280}.field{margin:16px 0}.field label{display:block;font-size:13px;margin-bottom:6px}.field input{width:100%;padding:12px;border:1px solid #d1d5db;border-radius:10px;font-size:15px}.btn{border:0;background:#20242a;color:white;padding:12px 16px;border-radius:10px;cursor:pointer;width:100%}.err{color:#b91c1c;font-size:13px;margin-top:12px}.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}.card{background:white;border:1px solid #e5e7eb;border-radius:14px;padding:18px}.k{font-size:13px;color:#6b7280}.v{font-size:25px;font-weight:750;margin-top:7px}.nav{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:20px}.nav button{background:white;border:1px solid #e5e7eb;border-radius:9px;padding:9px 12px}.section{background:white;border:1px solid #e5e7eb;border-radius:14px;padding:18px;margin-top:18px;overflow:auto}table{width:100%;border-collapse:collapse;font-size:14px}th,td{text-align:left;padding:11px;border-bottom:1px solid #eee;white-space:nowrap}th{color:#6b7280;font-size:12px}.pill{padding:4px 8px;border-radius:20px;background:#f0f2f5;font-size:11px}.hide{display:none}@media(max-width:750px){.grid{grid-template-columns:repeat(2,1fr)}.wrap{padding:14px}.top{padding:0 14px}}
-</style></head><body>
-<header class="top"><div class="brand">FlowStock<small>Sales • Stock • Delivery • Profit</small></div><div id="who"></div></header>
-<main class="wrap"><div id="login" class="login"><h1>เข้าสู่ระบบ</h1><p class="muted">FlowStock Pilot</p><div class="field"><label>Email</label><input id="email" type="email" placeholder="name@company.com"></div><div class="field"><label>Password</label><input id="password" type="password"></div><button class="btn" onclick="signIn()">เข้าสู่ระบบ</button><div id="error" class="err"></div><div style="border-top:1px solid #eee;margin:22px 0 14px"></div><p class="muted" style="font-size:13px">เข้าใช้ครั้งแรก</p><button class="btn" style="background:white;color:#20242a;border:1px solid #d1d5db" onclick="firstAdmin()">สร้างบัญชี ADMIN แรก</button><p class="muted" style="font-size:11px">ใช้เฉพาะตอนระบบยังไม่มีผู้ใช้งาน ระบบจะผูกบัญชีแรกกับ FlowStock Demo Company</p></div>
-<div id="app" class="hide"><div class="nav"><button onclick="loadAll()">Dashboard</button><button>Orders</button><button>Stock</button><button>Delivery</button><button>Profit</button><button onclick="signOut()">ออกจากระบบ</button></div><h2>Executive Dashboard</h2><p class="muted" id="company">ข้อมูลจาก FlowStock Database</p><div class="grid"><div class="card"><div class="k">Sales</div><div class="v" id="sales">—</div></div><div class="card"><div class="k">Gross Profit</div><div class="v" id="gp">—</div></div><div class="card"><div class="k">Open Orders</div><div class="v" id="orders">—</div></div><div class="card"><div class="k">Stock On Hand</div><div class="v" id="stock">—</div></div></div>
-<div class="section"><h3>Orders & Delivery</h3><table><thead><tr><th>Order</th><th>Date</th><th>Status</th></tr></thead><tbody id="orderRows"></tbody></table></div>
-<div class="section"><h3>Profitability</h3><table><thead><tr><th>Invoice</th><th>Revenue</th><th>Product Cost</th><th>Freight</th><th>Other</th><th>GP</th><th>Status</th></tr></thead><tbody id="invRows"></tbody></table></div></div></main>
-<script>
-const sb=supabase.createClient("https://ifanefgaiuzkbjtttiqn.supabase.co","sb_publishable_LYSS9b_Yxn29-fM0UK_mIg_Bot-M61k");
-const fmt=n=>new Intl.NumberFormat("th-TH",{maximumFractionDigits:2}).format(Number(n||0));
-async function signIn(){error.textContent="";const {error:e}=await sb.auth.signInWithPassword({email:email.value,password:password.value});if(e){error.textContent=e.message;return}boot()}
-async function firstAdmin(){error.textContent="";if(!email.value||!password.value){error.textContent="กรอก Email และ Password ก่อน (Password อย่างน้อย 6 ตัวอักษร)";return}if(password.value.length<6){error.textContent="Password ต้องอย่างน้อย 6 ตัวอักษร";return}const {data,error:e}=await sb.auth.signUp({email:email.value,password:password.value});if(e){error.textContent=e.message;return}if(data.session){const {error:pe}=await sb.rpc("claim_first_admin");if(pe){error.textContent=pe.message;await sb.auth.signOut();return}boot()}else{error.textContent="สร้างบัญชีแล้ว กรุณาตรวจ Email เพื่อยืนยันบัญชี แล้วกลับมา Login"}}
-async function signOut(){await sb.auth.signOut();location.reload()}
-async function boot(){const {data:{session}}=await sb.auth.getSession();if(!session)return;login.classList.add("hide");app.classList.remove("hide");who.textContent=session.user.email;loadAll()}
-async function loadAll(){const [o,i,s,p]=await Promise.all([sb.from("orders").select("order_no,order_date,status").order("order_date",{ascending:false}).limit(20),sb.from("invoices").select("invoice_no,revenue,product_cost,freight_cost,other_cost,gp_status").order("invoice_date",{ascending:false}).limit(20),sb.from("stock_balances").select("on_hand,allocated"),sb.from("user_profiles").select("app_role,companies(name)").limit(1)]);let errs=[o.error,i.error,s.error,p.error].filter(Boolean);if(errs.length){alert(errs[0].message);return}let revenue=0,gross=0;i.data.forEach(x=>{revenue+=+x.revenue||0;gross+=(+x.revenue||0)-(+x.product_cost||0)-(+x.freight_cost||0)-(+x.other_cost||0)});sales.textContent=fmt(revenue);gp.textContent=fmt(gross);orders.textContent=o.data.filter(x=>!["CLOSED","COMPLETED","DELIVERED","CANCELLED"].includes(x.status)).length;stock.textContent=fmt(s.data.reduce((a,x)=>a+(+x.on_hand||0),0));orderRows.innerHTML=o.data.map(x=>`<tr><td>${x.order_no}</td><td>${x.order_date||""}</td><td><span class="pill">${x.status}</span></td></tr>`).join("");invRows.innerHTML=i.data.map(x=>{let g=(+x.revenue||0)-(+x.product_cost||0)-(+x.freight_cost||0)-(+x.other_cost||0);return `<tr><td>${x.invoice_no}</td><td>${fmt(x.revenue)}</td><td>${fmt(x.product_cost)}</td><td>${fmt(x.freight_cost)}</td><td>${fmt(x.other_cost)}</td><td>${fmt(g)}</td><td><span class="pill">${x.gp_status}</span></td></tr>`}).join("");if(p.data?.[0])company.textContent=(p.data[0].companies?.name||"FlowStock")+" • "+p.data[0].app_role}
-boot();
-</script></body></html>
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#f7f8fa">
+  <title>FlowStock</title>
+  <link rel="stylesheet" href="styles.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.57.4/dist/umd/supabase.min.js"></script>
+  <script defer src="app.js"></script>
+</head>
+<body>
+  <div id="loading" class="loading"><div class="spinner"></div><span>กำลังโหลด FlowStock…</span></div>
+  <main id="authView" class="auth-shell hidden">
+    <section class="login-card">
+      <div class="logo-mark">FS</div><h1>FlowStock</h1>
+      <p class="subtitle">Sales • Stock • Delivery • Profit</p>
+      <form id="loginForm" autocomplete="on">
+        <label>อีเมล<input id="email" type="email" autocomplete="username" required placeholder="name@company.com"></label>
+        <label>รหัสผ่าน<input id="password" type="password" autocomplete="current-password" minlength="6" required></label>
+        <button class="btn primary wide" type="submit">เข้าสู่ระบบ</button>
+        <p id="loginError" class="error" role="alert"></p>
+      </form>
+      <button id="signupBtn" class="btn wide" type="button">ขอสร้างบัญชีผู้ใช้</button>
+      <form id="signupForm" class="hidden">
+        <label>ชื่อ-นามสกุล<input id="signupName" required></label>
+        <label>รหัสพนักงาน<input id="signupEmployee"></label>
+        <label>หน้าที่<select id="signupRole"><option value="SALES">ฝ่ายขาย</option><option value="WAREHOUSE">คลังสินค้า</option><option value="LOGISTICS">ขนส่ง</option><option value="OWNER">ผู้บริหาร</option></select></label>
+        <label>อีเมล<input id="signupEmail" type="email" required></label>
+        <label>รหัสผ่าน<input id="signupPassword" type="password" minlength="6" required></label>
+        <button class="btn primary wide" type="submit">ส่งคำขอเปิดใช้งาน</button>
+        <button id="backLoginBtn" class="btn wide" type="button">กลับหน้า Login</button>
+        <p id="signupError" class="error" role="alert"></p>
+      </form>
+      <section id="pendingView" class="hidden">
+        <div class="alert warn">คำขอเปิดใช้งานถูกส่งแล้ว กรุณารอ Admin อนุมัติ</div>
+        <button id="pendingLogoutBtn" class="btn wide">ออกจากระบบ</button>
+      </section>
+      <p class="login-note">บัญชีผู้ใช้และสิทธิ์กำหนดโดยผู้ดูแลระบบ</p>
+    </section>
+  </main>
+  <div id="shell" class="shell hidden">
+    <aside id="sidebar" class="sidebar">
+      <div class="brand"><span class="logo-mark small">FS</span><span><b>FlowStock</b><small>Sales • Stock • Delivery • Profit</small></span></div>
+      <nav id="nav"></nav>
+      <div class="side-foot"><span id="sideUser"></span><button id="logoutBtn" class="text-btn">ออกจากระบบ</button></div>
+    </aside>
+    <section class="workspace">
+      <header class="topbar">
+        <button id="menuBtn" class="icon-btn" aria-label="เปิดเมนู">☰</button>
+        <div><b id="companyName">FlowStock</b><small id="roleName"></small></div>
+        <button id="refreshBtn" class="btn ghost small-btn">↻ รีเฟรช</button>
+      </header>
+      <main id="page" class="page"></main>
+    </section>
+  </div>
+  <div id="modal" class="modal hidden" role="dialog" aria-modal="true">
+    <div class="modal-card"><button id="modalClose" class="modal-close" aria-label="ปิด">×</button><div id="modalBody"></div></div>
+  </div>
+  <div id="toast" class="toast" aria-live="polite"></div>
+</body>
+</html>
