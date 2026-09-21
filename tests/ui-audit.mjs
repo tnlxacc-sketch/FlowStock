@@ -12,7 +12,7 @@ Object.assign(ui.state,{profile:{app_role:'ADMIN',company_id:'co1'},company:{cod
 ui.state.data={
   customers:[{id:'c1',code:'C001',name:'Alpha',region:'BKK',active:true},{id:'c2',code:'C002',name:'Beta',active:true}],
   productGroups:[{id:'g1',code:'AAA',name:'Group A'}],products:[{id:'p1',code:'AAA-01',name:'Product A',base_uom:'EA',group_id:'g1',active:true},{id:'p2',code:'BBB-01',name:'Product B',base_uom:'EA',active:true}],
-  warehouses:[{id:'w1',code:'WH1',name:'Main',active:true},{id:'w2',code:'WH2',name:'Branch',active:true}],suppliers:[],vehicles:[],drivers:[],
+  warehouses:[{id:'w1',code:'WH1',name:'Main',active:true},{id:'w2',code:'WH2',name:'Branch',active:true}],suppliers:[],vehicleTypes:[{id:'vt1',code:'TANK',name:'Tank truck',active:true}],vehicles:[],drivers:[],
   balances:[{product_id:'p1',warehouse_id:'w1',on_hand:10,allocated:2},{product_id:'p2',warehouse_id:'w2',on_hand:0,allocated:0}],
   movements:[{product_id:'p1',warehouse_id:'w1',movement_type:'RECEIPT',reference_no:'GR-1',qty:10,created_at:`${year}-01-02`}],
   orders:[{id:'o1',order_no:'SO-1',customer_id:'c1',order_date:`${year}-01-01`,status:'DELIVERED',requested_delivery_at:`${year}-01-03`}],
@@ -64,5 +64,11 @@ assert.equal(parsed[1][0],'C,01','quoted CSV parser');
 const normalized=ui.normalizeImport('customers',parsed);
 assert.equal(normalized.errors.length,0,'customer import validation');
 assert.equal(normalized.rows.length,1,'customer import row');
+const vehicleImport=ui.normalizeImport('vehicles',ui.parseCsv('code,plate_no,vehicle_type,active\r\nTR01,1AA-1111,TANK,TRUE'));
+assert.equal(vehicleImport.errors.length,0,'vehicle type master reference');
+const invalidVehicleImport=ui.normalizeImport('vehicles',ui.parseCsv('code,plate_no,vehicle_type,active\r\nTR02,2BB-2222,Tnak,TRUE'));
+assert.equal(invalidVehicleImport.errors.length,1,'invalid vehicle type must be rejected');
+assert(source.includes('<select id="rateVehicleType">'),'expense-rate vehicle type must be a dropdown');
+assert(!source.includes('<input id="rateVehicleType"'),'free-text expense-rate vehicle type must not remain');
 
-console.log(JSON.stringify({pagesRendered:pages.length,actionReferences:new Set(sourceActions).size,navigationReferences:new Set(goRefs).size,profitViews:5,profitFormulas:2,masterImport:true,filtersTested:['year','warehouse','customer','search','sort-binding']},null,2));
+console.log(JSON.stringify({pagesRendered:pages.length,actionReferences:new Set(sourceActions).size,navigationReferences:new Set(goRefs).size,profitViews:5,profitFormulas:2,masterImport:true,controlledVehicleType:true,filtersTested:['year','warehouse','customer','search','sort-binding']},null,2));
