@@ -45,19 +45,20 @@
     </section>
   </main>
   <div id="shell" class="shell hidden">
-    <aside id="sidebar" class="sidebar">
-      <div class="brand"><span class="logo-mark small">FS</span><span><b>FlowStock</b><small>Sales • Stock • Delivery • Profit</small></span></div>
-      <nav id="nav"></nav>
-      <div class="side-foot"><span id="sideUser"></span><button id="logoutBtn" class="text-btn">ออกจากระบบ</button></div>
-    </aside>
-    <section class="workspace">
-      <header class="topbar">
-        <button id="menuBtn" class="icon-btn" aria-label="เปิดเมนู">☰</button>
-        <div><b id="companyName">FlowStock</b><small id="roleName"></small></div>
-        <button id="refreshBtn" class="btn ghost small-btn">↻ รีเฟรช</button>
-      </header>
-      <main id="page" class="page"></main>
-    </section>
+    <header class="topbar">
+      <button id="menuBtn" class="icon-btn" aria-label="เปิดเมนู">☰</button>
+      <div class="brand"><b>FlowStock</b><small>Sales • Stock • Delivery • Profit</small></div>
+      <div class="top-company"><b id="companyName">FlowStock</b><small id="sideUser"></small></div>
+      <span id="roleName" class="role-chip"></span>
+      <button id="refreshBtn" class="btn ghost small-btn">↻ รีเฟรช</button>
+    </header>
+    <div class="app-body">
+      <aside id="sidebar" class="sidebar">
+        <nav id="nav"></nav>
+        <div class="side-foot"><button id="logoutBtn" class="text-btn">ออกจากระบบ</button></div>
+      </aside>
+      <section class="workspace"><main id="page" class="page"></main></section>
+    </div>
   </div>
   <div id="modal" class="modal hidden" role="dialog" aria-modal="true">
     <div class="modal-card"><button id="modalClose" class="modal-close" aria-label="ปิด">×</button><div id="modalBody"></div></div>
