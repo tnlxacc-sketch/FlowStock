@@ -5,7 +5,7 @@ import vm from 'node:vm';
 const source=fs.readFileSync(new URL('../app.js',import.meta.url),'utf8').replace(/\ninit\(\)\.catch[\s\S]*$/,'');
 const context={console,Blob,URL,Intl,crypto,confirm:()=>true,prompt:()=>'',window:{print(){},open(){}},document:{querySelector(){return null},querySelectorAll(){return[]}},supabase:{createClient(){return{}}}};
 vm.createContext(context);
-vm.runInContext(`${source}\nglobalThis.__ui={state,actions,roleMenus,dashboardPage,ordersPage,customersPage,warehousePage,stockPage,countsPage,transfersPage,deliveryPage,profitPage,customer360Page,stockHealthPage,deliveryPerformancePage,costVariancePage,reportsPage,mastersPage,usersPage,settingsPage,auditPage,commercialPage,analyticsInvoices,analyticsTrips,analyticsBalances,profitTable,invoiceGross,invoiceContribution,parseCsv,normalizeImport};`,context);
+vm.runInContext(`${source}\nglobalThis.__ui={state,actions,roleMenus,dashboardPage,ordersPage,customersPage,warehousePage,stockPage,countsPage,transfersPage,deliveryPage,profitPage,customer360Page,stockHealthPage,deliveryPerformancePage,costVariancePage,reportsPage,mastersPage,usersPage,settingsPage,auditPage,commercialPage,analyticsInvoices,analyticsTrips,analyticsBalances,profitTable,invoiceGross,invoiceContribution,parseCsv,normalizeImport,normalizeOpeningStockImport};`,context);
 
 const ui=context.__ui,year=String(new Date().getFullYear());
 Object.assign(ui.state,{profile:{app_role:'ADMIN',company_id:'co1'},company:{code:'DEMO',subscription_plan:'DEMO',subscription_status:'ACTIVE',max_users:10,gp_policy:'ACTUAL'},isPlatformAdmin:true,reportYear:year,reportWarehouse:'ALL',reportCustomer:'ALL',profitView:'invoice',search:'',page:'dashboard'});
@@ -21,7 +21,7 @@ ui.state.data={
   trips:[{id:'t1',trip_no:'TR-1',order_id:'o1',status:'COMPLETED',planned_start:`${year}-01-03`,planned_end:`${year}-01-03`,standard_freight:20,actual_freight:25}],
   tripLines:[{id:'tl1',trip_id:'t1',product_id:'p1',issued_qty:2}],deliveryDocs:[],
   invoices:[{id:'i1',invoice_no:'INV-1',invoice_date:`${year}-01-03`,customer_id:'c1',revenue:300,product_cost:120,freight_cost:30,other_cost:0,gp_status:'FINAL'}],
-  invoiceOrders:[{invoice_id:'i1',order_id:'o1'}],costs:[{product_id:'p1',cost_month:`${year}-01-01`,unit_cost:60}],expenseTypes:[{id:'e1',code:'TOLL',name:'Toll',category:'DIRECT_EXPENSE',basis:'MANUAL',include_in_contribution:true,active:true}],expenseRates:[],actualExpenses:[],counts:[],countLines:[],periods:[],settings:[],accessRequests:[],users:[],audit:[],tenants:[]
+  invoiceOrders:[{invoice_id:'i1',order_id:'o1'}],costs:[{product_id:'p1',cost_month:`${year}-01-01`,unit_cost:60}],expenseTypes:[{id:'e1',code:'TOLL',name:'Toll',category:'DIRECT_EXPENSE',basis:'MANUAL',include_in_contribution:true,active:true}],expenseRates:[],actualExpenses:[],counts:[],countLines:[],periods:[],settings:[],openingBatches:[],openingLines:[],accessRequests:[],users:[],audit:[],tenants:[]
 };
 
 const pages=['dashboardPage','ordersPage','customersPage','warehousePage','stockPage','countsPage','transfersPage','deliveryPage','profitPage','customer360Page','stockHealthPage','deliveryPerformancePage','costVariancePage','reportsPage','mastersPage','usersPage','settingsPage','auditPage','commercialPage'];
@@ -70,5 +70,16 @@ const invalidVehicleImport=ui.normalizeImport('vehicles',ui.parseCsv('code,plate
 assert.equal(invalidVehicleImport.errors.length,1,'invalid vehicle type must be rejected');
 assert(source.includes('<select id="rateVehicleType">'),'expense-rate vehicle type must be a dropdown');
 assert(!source.includes('<input id="rateVehicleType"'),'free-text expense-rate vehicle type must not remain');
+const opening=ui.normalizeOpeningStockImport(ui.parseCsv('warehouse_code,product_code,qty,unit_cost\r\nWH1,AAA-01,10,25.50'));
+assert.equal(opening.errors.length,0,'valid opening stock import');
+assert.equal(opening.rows.length,1,'opening stock row');
+assert.equal(opening.rows[0].warehouse_id,'w1','opening stock warehouse mapping');
+assert.equal(opening.rows[0].product_id,'p1','opening stock product mapping');
+const duplicateOpening=ui.normalizeOpeningStockImport(ui.parseCsv('warehouse_code,product_code,qty,unit_cost\r\nWH1,AAA-01,10,25.50\r\nWH1,AAA-01,5,20'));
+assert.equal(duplicateOpening.errors.length,1,'duplicate opening stock line must be rejected');
+const badOpening=ui.normalizeOpeningStockImport(ui.parseCsv('warehouse_code,product_code,qty,unit_cost\r\nMISSING,AAA-01,0,'));
+assert(badOpening.errors.length>0,'invalid opening stock master/quantity/cost must be rejected');
+assert(source.includes("runRpc('post_opening_stock'"),'opening stock must post through the atomic RPC');
+assert.equal(typeof ui.actions.openingStock,'function','opening stock action handler');
 
-console.log(JSON.stringify({pagesRendered:pages.length,actionReferences:new Set(sourceActions).size,navigationReferences:new Set(goRefs).size,profitViews:5,profitFormulas:2,masterImport:true,controlledVehicleType:true,filtersTested:['year','warehouse','customer','search','sort-binding']},null,2));
+console.log(JSON.stringify({pagesRendered:pages.length,actionReferences:new Set(sourceActions).size,navigationReferences:new Set(goRefs).size,profitViews:5,profitFormulas:2,masterImport:true,openingStockImport:true,controlledVehicleType:true,filtersTested:['year','warehouse','customer','search','sort-binding']},null,2));
