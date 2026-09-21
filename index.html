@@ -4,6 +4,8 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="theme-color" content="#f7f8fa">
+  <meta name="referrer" content="strict-origin-when-cross-origin">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; connect-src 'self' https://ifanefgaiuzkbjtttiqn.supabase.co wss://ifanefgaiuzkbjtttiqn.supabase.co; img-src 'self' data: blob:; object-src 'none'; base-uri 'self'; form-action 'self'; upgrade-insecure-requests">
   <title>FlowStock</title>
   <link rel="stylesheet" href="styles.css">
   <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.57.4/dist/umd/supabase.min.js"></script>
@@ -17,17 +19,20 @@
       <p class="subtitle">Sales • Stock • Delivery • Profit</p>
       <form id="loginForm" autocomplete="on">
         <label>อีเมล<input id="email" type="email" autocomplete="username" required placeholder="name@company.com"></label>
-        <label>รหัสผ่าน<input id="password" type="password" autocomplete="current-password" minlength="6" required></label>
+        <label>รหัสผ่าน<input id="password" type="password" autocomplete="current-password" minlength="8" required></label>
         <button class="btn primary wide" type="submit">เข้าสู่ระบบ</button>
+        <button id="forgotBtn" class="text-btn auth-link" type="button">ลืมรหัสผ่าน</button>
         <p id="loginError" class="error" role="alert"></p>
       </form>
       <button id="signupBtn" class="btn wide" type="button">ขอสร้างบัญชีผู้ใช้</button>
       <form id="signupForm" class="hidden">
         <label>ชื่อ-นามสกุล<input id="signupName" required></label>
         <label>รหัสพนักงาน<input id="signupEmployee"></label>
+        <label>รหัสบริษัท<input id="signupCompany" maxlength="20" required placeholder="เช่น DEMO หรือรหัสที่ได้รับ"></label>
+        <label>รหัสเปิดบริษัทใหม่ (ถ้ามี)<input id="signupOnboarding" maxlength="40" placeholder="สำหรับ Admin บริษัทใหม่เท่านั้น"></label>
         <label>หน้าที่<select id="signupRole"><option value="SALES">ฝ่ายขาย</option><option value="WAREHOUSE">คลังสินค้า</option><option value="LOGISTICS">ขนส่ง</option><option value="OWNER">ผู้บริหาร</option></select></label>
         <label>อีเมล<input id="signupEmail" type="email" required></label>
-        <label>รหัสผ่าน<input id="signupPassword" type="password" minlength="6" required></label>
+        <label>รหัสผ่าน<input id="signupPassword" type="password" minlength="8" required></label>
         <button class="btn primary wide" type="submit">ส่งคำขอเปิดใช้งาน</button>
         <button id="backLoginBtn" class="btn wide" type="button">กลับหน้า Login</button>
         <p id="signupError" class="error" role="alert"></p>
