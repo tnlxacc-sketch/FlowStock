@@ -5,10 +5,10 @@ import vm from 'node:vm';
 const source=fs.readFileSync(new URL('../app.js',import.meta.url),'utf8').replace(/\ninit\(\)\.catch[\s\S]*$/,'');
 const context={console,Blob,URL,Intl,crypto,confirm:()=>true,prompt:()=>'',window:{print(){},open(){}},document:{querySelector(){return null},querySelectorAll(){return[]}},supabase:{createClient(){return{}}}};
 vm.createContext(context);
-vm.runInContext(`${source}\nglobalThis.__ui={state,actions,roleMenus,dashboardPage,ordersPage,customersPage,warehousePage,stockPage,countsPage,transfersPage,deliveryPage,profitPage,customer360Page,stockHealthPage,deliveryPerformancePage,costVariancePage,reportsPage,mastersPage,usersPage,settingsPage,auditPage,commercialPage,analyticsInvoices,analyticsTrips,analyticsBalances,profitTable,invoiceGross,invoiceContribution,parseCsv,normalizeImport,normalizeOpeningStockImport,movementRows,storedAccessPayload};`,context);
+vm.runInContext(`${source}\nglobalThis.__ui={state,actions,roleMenus,dashboardPage,ordersPage,customersPage,warehousePage,stockPage,countsPage,transfersPage,deliveryPage,profitPage,customer360Page,stockHealthPage,deliveryPerformancePage,costVariancePage,reportsPage,mastersPage,usersPage,settingsPage,dataManagementPage,auditPage,commercialPage,analyticsInvoices,analyticsTrips,analyticsBalances,profitTable,invoiceGross,invoiceContribution,parseCsv,normalizeImport,normalizeOpeningStockImport,movementRows,storedAccessPayload};`,context);
 
 const ui=context.__ui,year=String(new Date().getFullYear());
-Object.assign(ui.state,{profile:{app_role:'ADMIN',company_id:'co1'},company:{code:'DEMO',subscription_plan:'DEMO',subscription_status:'ACTIVE',max_users:10,gp_policy:'ACTUAL'},isPlatformAdmin:true,reportYear:year,reportWarehouse:'ALL',reportCustomer:'ALL',profitView:'invoice',search:'',page:'dashboard'});
+Object.assign(ui.state,{profile:{app_role:'ADMIN',company_id:'co1'},company:{code:'DEMO',is_demo:true,subscription_plan:'DEMO',subscription_status:'ACTIVE',max_users:10,gp_policy:'ACTUAL'},isPlatformAdmin:true,reportYear:year,reportWarehouse:'ALL',reportCustomer:'ALL',countPeriod:'ALL',profitView:'invoice',search:'',page:'dashboard'});
 ui.state.data={
   customers:[{id:'c1',code:'C001',name:'Alpha',region:'BKK',active:true},{id:'c2',code:'C002',name:'Beta',active:true}],
   productGroups:[{id:'g1',code:'AAA',name:'Group A'}],products:[{id:'p1',code:'AAA-01',name:'Product A',base_uom:'EA',group_id:'g1',active:true},{id:'p2',code:'BBB-01',name:'Product B',base_uom:'EA',active:true}],
@@ -33,7 +33,7 @@ ui.state.data.transferLines=[
   {id:'trl2',transfer_id:'tr2',product_id:'p2',sent_qty:3000,received_qty:0}
 ];
 
-const pages=['dashboardPage','ordersPage','customersPage','warehousePage','stockPage','countsPage','transfersPage','deliveryPage','profitPage','customer360Page','stockHealthPage','deliveryPerformancePage','costVariancePage','reportsPage','mastersPage','usersPage','settingsPage','auditPage','commercialPage'];
+const pages=['dashboardPage','ordersPage','customersPage','warehousePage','stockPage','countsPage','transfersPage','deliveryPage','profitPage','customer360Page','stockHealthPage','deliveryPerformancePage','costVariancePage','reportsPage','mastersPage','usersPage','settingsPage','dataManagementPage','auditPage','commercialPage'];
 const pageKeys=new Set(Object.values(ui.roleMenus).flat().map(x=>x[0]).concat(['executive','customers','commercial','inactive']));
 let html='';
 for(const name of pages){const out=ui[name]();assert.equal(typeof out,'string',`${name} must render HTML`);html+=out}
@@ -56,6 +56,10 @@ for(const view of ['product','group','customer','invoice','warehouse']){
 assert.equal(ui.analyticsInvoices().length,1,'baseline invoice filter');
 assert.equal(ui.invoiceGross(ui.state.data.invoices[0]),180,'gross profit formula');
 assert.equal(ui.invoiceContribution(ui.state.data.invoices[0]),150,'contribution profit formula');
+ui.state.page='executive';
+assert(ui.dashboardPage().includes('GP Margin %'),'executive dashboard shows gross margin percentage');
+assert(ui.profitPage().includes('GP Margin %'),'profit report shows gross margin percentage');
+ui.state.page='dashboard';
 ui.state.reportWarehouse='w2';
 assert.equal(ui.analyticsInvoices().length,1,'warehouse invoice filter');
 assert.equal(ui.analyticsBalances().length,1,'warehouse stock filter');
@@ -109,7 +113,16 @@ ui.state.movementType='ALL';
 ui.state.data.counts=[{id:'count1',count_no:'SC-1',warehouse_id:'w1',snapshot_at:`${year}-01-04`,status:'SUBMITTED'}];
 ui.state.data.countLines=[{id:'line1',count_id:'count1',product_id:'p1',book_qty:8,count_qty:7,pile_values:[4,3],variance_reason:'loss'}];
 assert(ui.countsPage().includes('Admin Final'),'submitted count exposes Admin Final action');
+assert(ui.countsPage().includes('id="countPeriod"'),'stock count results have a month-period filter');
+ui.state.countPeriod=`${year}-02`;
+assert(!ui.countsPage().includes('SC-1'),'count period filter excludes other months');
+ui.state.countPeriod='ALL';
 assert(ui.stockPage().includes('Balance'),'stock movement includes running balance column');
+const dataManagement=ui.dataManagementPage();
+assert(dataManagement.includes('ล้างธุรกรรมทดลอง'),'demo admin can reset transaction data');
+assert(dataManagement.includes('data-action="deleteDemoRecord"'),'demo admin can delete supported individual records');
+assert.equal(typeof ui.actions.resetDemoData,'function','reset demo data action is wired');
+assert.equal(typeof ui.actions.deleteDemoRecord,'function','individual demo delete action is wired');
 
 ui.state.profile.app_role='OWNER';
 ui.state.data.balances.push({product_id:'p1',warehouse_id:'w2',on_hand:5,allocated:1});
@@ -137,4 +150,4 @@ assert.equal(ui.storedAccessPayload({user_metadata:{flowstock_access:{mode:'REQU
 assert(source.includes("options:{data:{flowstock_access:payload}}"),'signup stores pending access payload before email confirmation');
 assert(source.includes('await submitAccess(payload)'),'confirmed login automatically submits the stored access request');
 
-console.log(JSON.stringify({pagesRendered:pages.length,actionReferences:new Set(sourceActions).size,navigationReferences:new Set(goRefs).size,profitViews:5,profitFormulas:2,masterImport:true,openingStockImport:true,controlledVehicleType:true,ownerStockViews:['combined','by-warehouse'],ownerCountReadOnly:true,emailConfirmationAccessRequest:true,visibleButtonsWired:pageButtons.length,filtersTested:['year','warehouse','customer','search','sort-binding']},null,2));
+console.log(JSON.stringify({pagesRendered:pages.length,actionReferences:new Set(sourceActions).size,navigationReferences:new Set(goRefs).size,profitViews:5,profitFormulas:2,gpMargin:true,countPeriodFilter:true,demoDataManagement:true,masterImport:true,openingStockImport:true,controlledVehicleType:true,ownerStockViews:['combined','by-warehouse'],ownerCountReadOnly:true,emailConfirmationAccessRequest:true,visibleButtonsWired:pageButtons.length,filtersTested:['year','warehouse','customer','count-period','search','sort-binding']},null,2));
