@@ -5,7 +5,7 @@ import vm from 'node:vm';
 const source=fs.readFileSync(new URL('../app.js',import.meta.url),'utf8').replace(/\ninit\(\)\.catch[\s\S]*$/,'');
 const context={console,Blob,URL,Intl,crypto,confirm:()=>true,prompt:()=>'',window:{print(){},open(){}},document:{querySelector(){return null},querySelectorAll(){return[]}},supabase:{createClient(){return{}}}};
 vm.createContext(context);
-vm.runInContext(`${source}\nglobalThis.__ui={state,actions,roleMenus,dashboardPage,ordersPage,customersPage,warehousePage,stockPage,countsPage,transfersPage,deliveryPage,profitPage,customer360Page,stockHealthPage,deliveryPerformancePage,costVariancePage,reportsPage,mastersPage,usersPage,settingsPage,auditPage,commercialPage,analyticsInvoices,analyticsTrips,analyticsBalances,profitTable,invoiceGross,invoiceContribution,parseCsv,normalizeImport,normalizeOpeningStockImport,movementRows};`,context);
+vm.runInContext(`${source}\nglobalThis.__ui={state,actions,roleMenus,dashboardPage,ordersPage,customersPage,warehousePage,stockPage,countsPage,transfersPage,deliveryPage,profitPage,customer360Page,stockHealthPage,deliveryPerformancePage,costVariancePage,reportsPage,mastersPage,usersPage,settingsPage,auditPage,commercialPage,analyticsInvoices,analyticsTrips,analyticsBalances,profitTable,invoiceGross,invoiceContribution,parseCsv,normalizeImport,normalizeOpeningStockImport,movementRows,storedAccessPayload};`,context);
 
 const ui=context.__ui,year=String(new Date().getFullYear());
 Object.assign(ui.state,{profile:{app_role:'ADMIN',company_id:'co1'},company:{code:'DEMO',subscription_plan:'DEMO',subscription_status:'ACTIVE',max_users:10,gp_policy:'ACTUAL'},isPlatformAdmin:true,reportYear:year,reportWarehouse:'ALL',reportCustomer:'ALL',profitView:'invoice',search:'',page:'dashboard'});
@@ -130,5 +130,11 @@ assert(!ownerCounts.includes('data-action="finalizeCount"'),'owner cannot finali
 assert(ui.roleMenus.OWNER.some(x=>x[0]==='counts'),'owner menu exposes count results');
 assert(source.includes("!can('WAREHOUSE','ADMIN')||c.status!=='DRAFT'"),'count detail enforces owner read-only mode');
 assert(ui.costVariancePage().includes('<th class="sortable num" data-col="1">Standard'),'numeric table headers align with numeric values');
+const storedRequest=ui.storedAccessPayload({user_metadata:{flowstock_access:{mode:'REQUEST',full_name:'New User',employee_code:'E001',requested_role:'WAREHOUSE',company_code:'DEMO'}}});
+assert.equal(storedRequest.company_code,'DEMO','confirmed signup retains company code for automatic access request');
+assert.equal(storedRequest.requested_role,'WAREHOUSE','confirmed signup retains requested role');
+assert.equal(ui.storedAccessPayload({user_metadata:{flowstock_access:{mode:'REQUEST',full_name:'Bad User',requested_role:'ADMIN',company_code:'DEMO'}}}),null,'self signup cannot request ADMIN role');
+assert(source.includes("options:{data:{flowstock_access:payload}}"),'signup stores pending access payload before email confirmation');
+assert(source.includes('await submitAccess(payload)'),'confirmed login automatically submits the stored access request');
 
-console.log(JSON.stringify({pagesRendered:pages.length,actionReferences:new Set(sourceActions).size,navigationReferences:new Set(goRefs).size,profitViews:5,profitFormulas:2,masterImport:true,openingStockImport:true,controlledVehicleType:true,ownerStockViews:['combined','by-warehouse'],ownerCountReadOnly:true,visibleButtonsWired:pageButtons.length,filtersTested:['year','warehouse','customer','search','sort-binding']},null,2));
+console.log(JSON.stringify({pagesRendered:pages.length,actionReferences:new Set(sourceActions).size,navigationReferences:new Set(goRefs).size,profitViews:5,profitFormulas:2,masterImport:true,openingStockImport:true,controlledVehicleType:true,ownerStockViews:['combined','by-warehouse'],ownerCountReadOnly:true,emailConfirmationAccessRequest:true,visibleButtonsWired:pageButtons.length,filtersTested:['year','warehouse','customer','search','sort-binding']},null,2));
