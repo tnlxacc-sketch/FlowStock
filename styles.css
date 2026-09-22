@@ -13,3 +13,19 @@
 @media(max-width:800px){.count-grid-head{display:none}.count-line{grid-template-columns:1fr 1fr}.count-product,.count-piles,.count-reason-wrap{grid-column:1/-1}.count-diff{text-align:left}.date-filter{width:100%}.date-filter input{flex:1}}
 @media(max-width:430px){.cards{grid-template-columns:1fr}.card .value{font-size:22px}}
 @media print{.sidebar,.topbar,.page-head .actions,.btn,.toolbar{display:none!important}.shell{display:block}.page{max-width:none;padding:0}.panel,.card{box-shadow:none;break-inside:avoid}.table-wrap{overflow:visible}th,td{white-space:normal}}
+
+/* Transfer list: keep quantities aligned and columns compact on desktop/mobile. */
+.table-wrap.transfer-table{max-width:1120px}
+.transfer-table table{table-layout:fixed;min-width:820px}
+.transfer-table th,.transfer-table td{vertical-align:middle}
+.transfer-table th:nth-child(1),.transfer-table td:nth-child(1){width:17%}
+.transfer-table th:nth-child(2),.transfer-table td:nth-child(2),.transfer-table th:nth-child(3),.transfer-table td:nth-child(3){width:9%}
+.transfer-table th:nth-child(4),.transfer-table td:nth-child(4){width:24%}
+.transfer-table th:nth-child(5),.transfer-table td:nth-child(5),.transfer-table th:nth-child(6),.transfer-table td:nth-child(6){width:10%;text-align:right}
+.transfer-table th:nth-child(7),.transfer-table td:nth-child(7){width:10%}
+.transfer-table th:nth-child(8),.transfer-table td:nth-child(8){width:11%;text-align:center}
+.transfer-table .product-cell{white-space:normal;line-height:1.35}
+.transfer-table .product-cell span,.transfer-table .product-cell small{display:block;color:var(--muted);font-size:11px;margin-top:2px}
+.transfer-table .product-cell small{font-size:10px}
+.transfer-table .action-cell{white-space:normal}
+@media(max-width:800px){.table-wrap.transfer-table{max-width:none}.transfer-table table{min-width:820px}}
