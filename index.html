@@ -7,9 +7,9 @@
   <meta name="referrer" content="strict-origin-when-cross-origin">
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; connect-src 'self' https://ifanefgaiuzkbjtttiqn.supabase.co wss://ifanefgaiuzkbjtttiqn.supabase.co; img-src 'self' data: blob:; object-src 'none'; base-uri 'self'; form-action 'self'; upgrade-insecure-requests">
   <title>FlowStock</title>
-  <link rel="stylesheet" href="styles.css?v=1.7.0">
+  <link rel="stylesheet" href="styles.css?v=1.8.0">
   <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.57.4/dist/umd/supabase.min.js"></script>
-  <script defer src="app.js?v=1.7.0"></script>
+  <script defer src="app.js?v=1.8.0"></script>
 </head>
 <body>
   <div id="loading" class="loading"><div class="spinner"></div><span>กำลังโหลด FlowStock…</span></div>
@@ -28,8 +28,8 @@
       <form id="signupForm" class="hidden">
         <label>ชื่อ-นามสกุล<input id="signupName" required></label>
         <label>รหัสพนักงาน<input id="signupEmployee"></label>
-        <label>รหัสบริษัท<input id="signupCompany" maxlength="20" required placeholder="เช่น DEMO หรือรหัสที่ได้รับ"></label>
-        <label>รหัสเปิดบริษัทใหม่ (ถ้ามี)<input id="signupOnboarding" maxlength="40" placeholder="สำหรับ Admin บริษัทใหม่เท่านั้น"></label>
+        <label>รหัสบริษัท<input id="signupCompany" maxlength="20" required placeholder="เช่น DEMO หรือรหัสที่ได้รับ"><small id="signupCompanyHint">ใช้รหัสบริษัทที่ Admin แจ้งให้</small></label>
+        <label>รหัสเปิดบริษัทใหม่ (ถ้ามี)<input id="signupOnboarding" maxlength="40" placeholder="สำหรับ Admin บริษัทใหม่เท่านั้น"><small>ถ้ามีรหัสนี้ ระบบจะสร้าง Admin บริษัทให้ทันทีหลังยืนยันอีเมล</small></label>
         <label>หน้าที่<select id="signupRole"><option value="SALES">ฝ่ายขาย</option><option value="WAREHOUSE">คลังสินค้า</option><option value="LOGISTICS">ขนส่ง</option><option value="OWNER">ผู้บริหาร</option></select></label>
         <label>อีเมล<input id="signupEmail" type="email" required></label>
         <label>รหัสผ่าน<input id="signupPassword" type="password" minlength="8" required></label>
