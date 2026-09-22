@@ -5,7 +5,7 @@ import vm from 'node:vm';
 const source=fs.readFileSync(new URL('../app.js',import.meta.url),'utf8').replace(/\ninit\(\)\.catch[\s\S]*$/,'');
 const context={console,Blob,URL,Intl,crypto,confirm:()=>true,prompt:()=>'',window:{print(){},open(){}},document:{querySelector(){return null},querySelectorAll(){return[]}},supabase:{createClient(){return{}}}};
 vm.createContext(context);
-vm.runInContext(`${source}\nglobalThis.__ui={state,actions,roleMenus,dashboardPage,ordersPage,customersPage,warehousePage,stockPage,countsPage,transfersPage,deliveryPage,profitPage,customer360Page,stockHealthPage,deliveryPerformancePage,costVariancePage,reportsPage,mastersPage,usersPage,settingsPage,auditPage,commercialPage,analyticsInvoices,analyticsTrips,analyticsBalances,profitTable,invoiceGross,invoiceContribution,parseCsv,normalizeImport,normalizeOpeningStockImport};`,context);
+vm.runInContext(`${source}\nglobalThis.__ui={state,actions,roleMenus,dashboardPage,ordersPage,customersPage,warehousePage,stockPage,countsPage,transfersPage,deliveryPage,profitPage,customer360Page,stockHealthPage,deliveryPerformancePage,costVariancePage,reportsPage,mastersPage,usersPage,settingsPage,auditPage,commercialPage,analyticsInvoices,analyticsTrips,analyticsBalances,profitTable,invoiceGross,invoiceContribution,parseCsv,normalizeImport,normalizeOpeningStockImport,movementRows};`,context);
 
 const ui=context.__ui,year=String(new Date().getFullYear());
 Object.assign(ui.state,{profile:{app_role:'ADMIN',company_id:'co1'},company:{code:'DEMO',subscription_plan:'DEMO',subscription_status:'ACTIVE',max_users:10,gp_policy:'ACTUAL'},isPlatformAdmin:true,reportYear:year,reportWarehouse:'ALL',reportCustomer:'ALL',profitView:'invoice',search:'',page:'dashboard'});
@@ -81,5 +81,16 @@ const badOpening=ui.normalizeOpeningStockImport(ui.parseCsv('warehouse_code,prod
 assert(badOpening.errors.length>0,'invalid opening stock master/quantity/cost must be rejected');
 assert(source.includes("runRpc('post_opening_stock'"),'opening stock must post through the atomic RPC');
 assert.equal(typeof ui.actions.openingStock,'function','opening stock action handler');
+
+ui.state.data.movements.push({id:'m2',product_id:'p1',warehouse_id:'w1',movement_type:'ORDER_ISSUE',reference_no:'SO-1',qty:-2,created_at:`${year}-01-03`});
+assert.equal(ui.movementRows().length,2,'movement rows include both In and Out');
+assert.equal(ui.movementRows()[0].balanceAfter,8,'movement running balance');
+ui.state.movementType='OUT';
+assert.equal(ui.movementRows().length,1,'movement type filter');
+ui.state.movementType='ALL';
+ui.state.data.counts=[{id:'count1',count_no:'SC-1',warehouse_id:'w1',snapshot_at:`${year}-01-04`,status:'SUBMITTED'}];
+ui.state.data.countLines=[{id:'line1',count_id:'count1',product_id:'p1',book_qty:8,count_qty:7,pile_values:[4,3],variance_reason:'loss'}];
+assert(ui.countsPage().includes('Admin Final'),'submitted count exposes Admin Final action');
+assert(ui.stockPage().includes('Balance'),'stock movement includes running balance column');
 
 console.log(JSON.stringify({pagesRendered:pages.length,actionReferences:new Set(sourceActions).size,navigationReferences:new Set(goRefs).size,profitViews:5,profitFormulas:2,masterImport:true,openingStockImport:true,controlledVehicleType:true,filtersTested:['year','warehouse','customer','search','sort-binding']},null,2));
