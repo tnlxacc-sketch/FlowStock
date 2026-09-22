@@ -9,7 +9,7 @@
   <title>FlowStock</title>
   <link rel="stylesheet" href="styles.css?v=1.9.0">
   <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.57.4/dist/umd/supabase.min.js"></script>
-  <script defer src="app.js?v=1.9.0"></script>
+  <script defer src="app.js?v=1.9.1"></script>
 </head>
 <body>
   <div id="loading" class="loading"><div class="spinner"></div><span>กำลังโหลด FlowStock…</span></div>
@@ -26,6 +26,7 @@
       </form>
       <button id="signupBtn" class="btn wide" type="button">ขอสร้างบัญชีผู้ใช้</button>
       <form id="signupForm" class="hidden">
+        <div id="signupFlowNote" class="alert warn hidden"></div>
         <label>ชื่อ-นามสกุล<input id="signupName" required></label>
         <label>รหัสพนักงาน<input id="signupEmployee"></label>
         <label>รหัสบริษัท<input id="signupCompany" maxlength="20" required placeholder="เช่น DEMO หรือรหัสที่ได้รับ"><small id="signupCompanyHint">ใช้รหัสบริษัทที่ Admin แจ้งให้</small></label>
