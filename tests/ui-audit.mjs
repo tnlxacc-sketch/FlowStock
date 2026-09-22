@@ -24,6 +24,15 @@ ui.state.data={
   invoiceOrders:[{invoice_id:'i1',order_id:'o1'}],costs:[{product_id:'p1',cost_month:`${year}-01-01`,unit_cost:60}],expenseTypes:[{id:'e1',code:'TOLL',name:'Toll',category:'DIRECT_EXPENSE',basis:'MANUAL',include_in_contribution:true,active:true}],expenseRates:[],actualExpenses:[],counts:[],countLines:[],periods:[],settings:[],openingBatches:[],openingLines:[],accessRequests:[],users:[],audit:[],tenants:[]
 };
 
+ui.state.data.transfers=[
+  {id:'tr1',transfer_no:'TR-1',from_warehouse_id:'w1',to_warehouse_id:'w2',status:'COMPLETED'},
+  {id:'tr2',transfer_no:'TR-2',from_warehouse_id:'w2',to_warehouse_id:'w1',status:'IN_TRANSIT'}
+];
+ui.state.data.transferLines=[
+  {id:'trl1',transfer_id:'tr1',product_id:'p1',sent_qty:10000,received_qty:10000},
+  {id:'trl2',transfer_id:'tr2',product_id:'p2',sent_qty:3000,received_qty:0}
+];
+
 const pages=['dashboardPage','ordersPage','customersPage','warehousePage','stockPage','countsPage','transfersPage','deliveryPage','profitPage','customer360Page','stockHealthPage','deliveryPerformancePage','costVariancePage','reportsPage','mastersPage','usersPage','settingsPage','auditPage','commercialPage'];
 const pageKeys=new Set(Object.values(ui.roleMenus).flat().map(x=>x[0]).concat(['executive','customers','commercial','inactive']));
 let html='';
@@ -59,6 +68,13 @@ assert.equal(ui.analyticsInvoices().length,0,'customer filter');
 const sourceActions=[...source.matchAll(/data-action="([A-Za-z0-9]+)"/g)].map(x=>x[1]);
 for(const action of sourceActions)assert.equal(typeof ui.actions[action],'function',`source references missing action: ${action}`);
 assert(!source.includes('<span class="tab-pill">By Product</span>'),'inert profit tab remains in source');
+const transferHtml=ui.transfersPage();
+assert(transferHtml.includes('transfer-table'),'transfer table uses compact layout class');
+assert(transferHtml.includes('ดำเนินการ'),'transfer action column is labeled');
+assert(transferHtml.includes('Product A'),'transfer row shows product name beside code');
+assert(transferHtml.includes('หน่วย: EA'),'transfer row shows product base unit');
+assert(transferHtml.includes('data-sort="10000"'),'sent quantity keeps numeric sort value');
+assert(transferHtml.includes('data-sort="0"'),'received zero remains a real numeric value');
 const parsed=ui.parseCsv('\ufeffcode,name,region,active\r\n"C,01","ลูกค้า ทดสอบ",BKK,TRUE');
 assert.equal(parsed[1][0],'C,01','quoted CSV parser');
 const normalized=ui.normalizeImport('customers',parsed);
