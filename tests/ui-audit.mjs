@@ -42,6 +42,8 @@ const actionRefs=[...html.matchAll(/data-action="([^"]+)"/g)].map(x=>x[1]);
 for(const action of actionRefs)assert.equal(typeof ui.actions[action],'function',`missing action handler: ${action}`);
 const goRefs=[...html.matchAll(/data-go="([^"]+)"/g)].map(x=>x[1]);
 for(const page of goRefs)assert(pageKeys.has(page),`missing target page: ${page}`);
+const pageButtons=[...html.matchAll(/<button\b([^>]*)>/g)].map(x=>x[1]);
+for(const attrs of pageButtons)assert(/data-(?:action|go|profit-view|stock-view)=/.test(attrs),`visible page button is not wired: ${attrs}`);
 
 for(const view of ['product','group','customer','invoice','warehouse']){
   ui.state.profitView=view;
@@ -109,4 +111,24 @@ ui.state.data.countLines=[{id:'line1',count_id:'count1',product_id:'p1',book_qty
 assert(ui.countsPage().includes('Admin Final'),'submitted count exposes Admin Final action');
 assert(ui.stockPage().includes('Balance'),'stock movement includes running balance column');
 
-console.log(JSON.stringify({pagesRendered:pages.length,actionReferences:new Set(sourceActions).size,navigationReferences:new Set(goRefs).size,profitViews:5,profitFormulas:2,masterImport:true,openingStockImport:true,controlledVehicleType:true,filtersTested:['year','warehouse','customer','search','sort-binding']},null,2));
+ui.state.profile.app_role='OWNER';
+ui.state.data.balances.push({product_id:'p1',warehouse_id:'w2',on_hand:5,allocated:1});
+ui.state.reportWarehouse='ALL';ui.state.stockView='TOTAL';
+const ownerStockTotal=ui.stockPage();
+assert(ownerStockTotal.includes('รวมทุกคลัง'),'owner can select combined stock');
+assert(ownerStockTotal.includes('แยกตามคลัง'),'owner can select warehouse-split stock');
+assert(!ownerStockTotal.includes('Stock Movement'),'owner stock must not expose movement');
+assert(ownerStockTotal.includes('>15<'),'owner combined stock aggregates the same product across warehouses');
+ui.state.stockView='BY_WAREHOUSE';
+const ownerStockSplit=ui.stockPage();
+assert(ownerStockSplit.includes('reportWarehouse'),'owner warehouse-split stock has a warehouse filter');
+assert(ownerStockSplit.includes('WH1')&&ownerStockSplit.includes('WH2'),'owner warehouse-split stock shows warehouse rows');
+const ownerCounts=ui.countsPage();
+assert(ownerCounts.includes('ผลตรวจนับ Stock'),'owner has a stock-count result page');
+assert(!ownerCounts.includes('newCount'),'owner cannot start a stock count');
+assert(!ownerCounts.includes('data-action="finalizeCount"'),'owner cannot finalize a stock count');
+assert(ui.roleMenus.OWNER.some(x=>x[0]==='counts'),'owner menu exposes count results');
+assert(source.includes("!can('WAREHOUSE','ADMIN')||c.status!=='DRAFT'"),'count detail enforces owner read-only mode');
+assert(ui.costVariancePage().includes('<th class="sortable num" data-col="1">Standard'),'numeric table headers align with numeric values');
+
+console.log(JSON.stringify({pagesRendered:pages.length,actionReferences:new Set(sourceActions).size,navigationReferences:new Set(goRefs).size,profitViews:5,profitFormulas:2,masterImport:true,openingStockImport:true,controlledVehicleType:true,ownerStockViews:['combined','by-warehouse'],ownerCountReadOnly:true,visibleButtonsWired:pageButtons.length,filtersTested:['year','warehouse','customer','search','sort-binding']},null,2));
