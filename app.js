@@ -146,7 +146,7 @@ function warehousePage(){
   const rec=state.data.receipts.slice(0,8).map(r=>`<tr><td><b>${esc(r.gr_no)}</b></td><td>${esc(warehouse(r.warehouse_id).code)}</td><td>${esc(r.source_doc_no||'-')}</td><td>${dmy(r.receipt_date)}</td><td>${badge(r.status)}</td></tr>`);
   return head('งานคลัง','รับเข้า จ่ายออก และตรวจสอบงานค้าง','<button class="btn primary" data-action="newReceipt">+ รับสินค้า</button>')+cards([['รอจ่าย',nf.format(jobs.length),'Orders'],['รับเข้าวันนี้',nf.format(state.data.receipts.filter(x=>x.receipt_date===new Date().toISOString().slice(0,10)).length),'เอกสาร'],['Stock รวม',qty(state.data.balances.reduce((s,x)=>s+Number(x.on_hand),0)),'ทุกคลัง'],['โอนค้างรับ',nf.format(state.data.transfers.filter(x=>x.status==='IN_TRANSIT').length),'Transfers']])+`<div class="split"><div class="panel"><h3>งานรอจ่าย</h3>${table(['Order','ลูกค้า','คงเหลือต้องจ่าย','สถานะ',''],jobs)}</div><div class="panel"><h3>รับสินค้าล่าสุด</h3>${table(['GR','คลัง','เอกสารอ้างอิง','วันที่','สถานะ'],rec)}</div></div>`;
 }
-const movementTypeThai={RECEIPT:'รับเข้า',OPENING_BALANCE:'ยอดยกมา',TRANSFER_OUT:'โอนออก',TRANSFER_IN:'โอนเข้า',ORDER_ISSUE:'จ่ายตาม Order',COUNT_ADJUSTMENT:'ปรับจากตรวจนับ'};
+const movementTypeThai={RECEIPT:'รับเข้า',OPENING_BALANCE:'ยอดยกมา',TRANSFER_OUT:'โอนออก',TRANSFER_IN:'โอนเข้า',ORDER_ISSUE:'จ่ายตาม Order',ISSUE:'จ่ายออก',COUNT_ADJUSTMENT:'ปรับจากตรวจนับ'};
 const movementDirection=m=>Number(m.qty)>=0?'IN':'OUT';
 function movementRows(){
   const all=[...(state.data.movements||[])].sort((a,b)=>{const x=String(a.created_at).localeCompare(String(b.created_at));return x||String(a.id).localeCompare(String(b.id))});
