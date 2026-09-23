@@ -13,6 +13,10 @@
 @media(max-width:560px){.cards{grid-template-columns:1fr}.card .value{font-size:22px}.role-chip{font-size:11px}.page-head h1{font-size:22px}}
 @media print{.sidebar,.topbar,.page-head .actions,.btn,.toolbar{display:none!important}.shell{display:block}.page{max-width:none;padding:0}.panel,.card{box-shadow:none;break-inside:avoid}.table-wrap{overflow:visible}th,td{white-space:normal}}
 
+/* v1.12 reporting: dense operational detail with readable product stacks. */
+.report-search{margin:-8px 0 14px}.report-search input{min-width:min(100%,440px);flex:1}.report-product-list{min-width:250px;white-space:normal}.report-product-list>div{padding:3px 0;border-bottom:1px dashed #e4e8ec}.report-product-list>div:last-child{border-bottom:0}.report-product-list small,.profit-invoice-table td small,.delivery-detail-table td small{display:block;color:var(--muted);font-size:11px;margin-top:3px}.profit-invoice-table table{min-width:1850px}.delivery-detail-table table{min-width:1500px}.delivery-product-table table{min-width:850px}.sales-import-preview table{min-width:900px}.import-errors{max-height:240px;overflow:auto}.page-head .actions{max-width:900px;justify-content:flex-end}.page-head .actions select{max-width:240px}
+@media(max-width:760px){.page-head{display:block}.page-head .actions{margin-top:12px;justify-content:flex-start}.page-head .actions select{width:100%;max-width:none}.report-search input{min-width:100%}}
+
 /* Transfer list: keep quantities aligned and columns compact on desktop/mobile. */
 .table-wrap.transfer-table{max-width:1120px}
 .transfer-table table{table-layout:fixed;min-width:820px}

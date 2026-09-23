@@ -29,6 +29,12 @@ role checks, request idempotency, and audit logging.
 - POD files use a private Storage bucket with tenant-scoped policies and a 10 MB limit.
 - Suspended or expired tenants cannot read operational data or post transactions.
 - CSV exports and print-to-PDF are available for operational reporting.
+- Sales & Profit includes month/customer/product/warehouse filters, shipment
+  quantity, product detail, vehicle/driver context, and allocation-safe CSV.
+- Delivery Performance summarizes products, trips, received quantity, linked
+  sales, freight, transport vendors, on-time delivery, and trip detail.
+- Demo admins can atomically import historical Sales Orders, Order Lines, and
+  Invoices for presentations without changing current stock balances.
 
 Operational handoff: [`docs/COMMERCIAL_RUNBOOK.md`](docs/COMMERCIAL_RUNBOOK.md)
 UAT checklist: [`docs/UAT_CHECKLIST.md`](docs/UAT_CHECKLIST.md)

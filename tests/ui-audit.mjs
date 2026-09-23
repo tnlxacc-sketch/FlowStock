@@ -12,16 +12,16 @@ Object.assign(ui.state,{profile:{app_role:'ADMIN',company_id:'co1'},company:{cod
 ui.state.data={
   customers:[{id:'c1',code:'C001',name:'Alpha',region:'BKK',active:true},{id:'c2',code:'C002',name:'Beta',active:true}],
   productGroups:[{id:'g1',code:'AAA',name:'Group A'}],products:[{id:'p1',code:'AAA-01',name:'Product A',base_uom:'EA',group_id:'g1',active:true},{id:'p2',code:'BBB-01',name:'Product B',base_uom:'EA',active:true}],
-  warehouses:[{id:'w1',code:'WH1',name:'Main',active:true},{id:'w2',code:'WH2',name:'Branch',active:true}],suppliers:[],vehicleTypes:[{id:'vt1',code:'TANK',name:'Tank truck',active:true}],vehicles:[],drivers:[],
+  warehouses:[{id:'w1',code:'WH1',name:'Main',active:true},{id:'w2',code:'WH2',name:'Branch',active:true}],suppliers:[],vehicleTypes:[{id:'vt1',code:'TANK',name:'Tank truck',active:true}],vehicles:[{id:'v1',code:'TR01',plate_no:'1AA-1111',vehicle_type:'TANK',active:true}],drivers:[{id:'d1',code:'D001',name:'Driver One',active:true}],
   balances:[{product_id:'p1',warehouse_id:'w1',on_hand:10,allocated:2},{product_id:'p2',warehouse_id:'w2',on_hand:0,allocated:0}],
   movements:[{product_id:'p1',warehouse_id:'w1',movement_type:'RECEIPT',reference_no:'GR-1',qty:10,created_at:`${year}-01-02`}],
   orders:[{id:'o1',order_no:'SO-1',customer_id:'c1',order_date:`${year}-01-01`,status:'DELIVERED',requested_delivery_at:`${year}-01-03`}],
   orderLines:[{id:'ol1',order_id:'o1',product_id:'p1',warehouse_id:'w1',qty:2,issued_qty:2,unit_price:100},{id:'ol2',order_id:'o1',product_id:'p2',warehouse_id:'w2',qty:1,issued_qty:1,unit_price:100}],
   receipts:[],transfers:[],transferLines:[],
-  trips:[{id:'t1',trip_no:'TR-1',order_id:'o1',status:'COMPLETED',planned_start:`${year}-01-03`,planned_end:`${year}-01-03`,standard_freight:20,actual_freight:25}],
-  tripLines:[{id:'tl1',trip_id:'t1',product_id:'p1',issued_qty:2}],deliveryDocs:[],
+  trips:[{id:'t1',trip_no:'TR-1',order_id:'o1',vehicle_id:'v1',driver_id:'d1',status:'COMPLETED',planned_start:`${year}-01-03`,planned_end:`${year}-01-03`,completed_at:`${year}-01-03`,standard_freight:20,actual_freight:25}],
+  tripLines:[{id:'tl1',trip_id:'t1',order_line_id:'ol1',product_id:'p1',issued_qty:2,received_qty:2},{id:'tl2',trip_id:'t1',order_line_id:'ol2',product_id:'p2',issued_qty:1,received_qty:1}],deliveryDocs:[],
   invoices:[{id:'i1',invoice_no:'INV-1',invoice_date:`${year}-01-03`,customer_id:'c1',revenue:300,product_cost:120,freight_cost:30,other_cost:0,gp_status:'FINAL'}],
-  invoiceOrders:[{invoice_id:'i1',order_id:'o1'}],costs:[{product_id:'p1',cost_month:`${year}-01-01`,unit_cost:60}],expenseTypes:[{id:'e1',code:'TOLL',name:'Toll',category:'DIRECT_EXPENSE',basis:'MANUAL',include_in_contribution:true,active:true}],expenseRates:[],actualExpenses:[],counts:[],countLines:[],periods:[],settings:[],openingBatches:[],openingLines:[],accessRequests:[],users:[],audit:[],tenants:[]
+  invoiceOrders:[{invoice_id:'i1',order_id:'o1'}],invoiceTrips:[{invoice_id:'i1',trip_id:'t1'}],costs:[{product_id:'p1',cost_month:`${year}-01-01`,unit_cost:60}],expenseTypes:[{id:'e1',code:'TOLL',name:'Toll',category:'DIRECT_EXPENSE',basis:'MANUAL',include_in_contribution:true,active:true}],expenseRates:[],actualExpenses:[],counts:[],countLines:[],periods:[],settings:[],openingBatches:[],openingLines:[],accessRequests:[],users:[],audit:[],tenants:[]
 };
 
 ui.state.data.transfers=[
@@ -57,8 +57,21 @@ assert.equal(ui.analyticsInvoices().length,1,'baseline invoice filter');
 assert.equal(ui.invoiceGross(ui.state.data.invoices[0]),180,'gross profit formula');
 assert.equal(ui.invoiceContribution(ui.state.data.invoices[0]),150,'contribution profit formula');
 ui.state.page='executive';
+ui.state.profitView='invoice';
 assert(ui.dashboardPage().includes('GP Margin %'),'executive dashboard shows gross margin percentage');
 assert(ui.profitPage().includes('GP Margin %'),'profit report shows gross margin percentage');
+assert(ui.profitPage().includes('id="reportMonth"'),'profit report has month filter');
+assert(ui.profitPage().includes('id="reportProduct"'),'profit report has product filter');
+assert(ui.profitPage().includes('ปริมาณส่ง'),'profit report shows delivered quantity');
+assert(ui.profitPage().includes('Product A'),'invoice profit detail shows product name');
+assert(ui.profitPage().includes('Driver One'),'invoice profit detail shows driver context');
+const deliveryPerformance=ui.deliveryPerformancePage();
+assert(deliveryPerformance.includes('ส่งสินค้าอะไร กี่เที่ยว เป็นเงินเท่าไร'),'delivery report includes product/trip/sales management summary');
+assert(deliveryPerformance.includes('id="reportVehicle"'),'delivery report has vehicle filter');
+assert(deliveryPerformance.includes('id="reportMonth"'),'delivery report has month filter');
+assert(ui.reportsPage().includes('data-action="salesHistoryImport"'),'admin reports expose historical sales import');
+assert(source.includes("db.rpc('admin_import_sales_history'"),'sales history import posts through atomic RPC');
+assert(source.includes('ไม่ตัด Stock ปัจจุบัน'),'sales history import states no stock impact');
 ui.state.page='dashboard';
 ui.state.reportWarehouse='w2';
 assert.equal(ui.analyticsInvoices().length,1,'warehouse invoice filter');
