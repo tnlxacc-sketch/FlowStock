@@ -23,17 +23,24 @@ ui.state.data={
   invoices:[{id:'i1',invoice_no:'INV-1',invoice_date:`${year}-01-03`,customer_id:'c1',revenue:300,product_cost:120,freight_cost:30,other_cost:0,gp_status:'FINAL'}],
   invoiceOrders:[{invoice_id:'i1',order_id:'o1'}],invoiceTrips:[{invoice_id:'i1',trip_id:'t1'}],costs:[{product_id:'p1',cost_month:`${year}-01-01`,unit_cost:60}],expenseTypes:[{id:'e1',code:'TOLL',name:'Toll',category:'DIRECT_EXPENSE',basis:'MANUAL',include_in_contribution:true,active:true}],expenseRates:[],actualExpenses:[],counts:[],countLines:[],periods:[],settings:[],openingBatches:[],openingLines:[],accessRequests:[],users:[],audit:[],tenants:[]
 };
-ui.state.data.todayStatus={date:`${year}-09-23`,orders:1,invoices:5,revenue:963427.2,trips:2,completed_trips:2,future_completed_trips:2,waiting_logistics:0,late_trips:0,stockout_rows:0,low_contribution_invoices:1};
+ui.state.data.todayStatus={date:`${year}-09-23`,orders:1,invoices:5,revenue:963427.2,trips:2,completed_trips:2,future_completed_trips:2,waiting_logistics:0,late_trips:0,stockout_rows:0,low_contribution_invoices:1,contribution_threshold_pct:18.5};
 const todayHtml=ui.todayPanel();
 assert(todayHtml.includes('963,427.2'),"today sales comes from today's invoices");
 assert(todayHtml.includes('5'),'today invoice count is shown');
-assert(todayHtml.includes('1 Invoice วันนี้มี Contribution ต่ำกว่า 12%'),'low margin warning uses today');
+assert(todayHtml.includes('1 Invoice วันนี้มี Contribution ต่ำกว่า 18.5%'),'low margin warning uses company policy');
+assert(todayHtml.includes('data-action="openLowContribution"'),'warning opens filtered invoice list');
 assert(todayHtml.includes('2 เที่ยวส่งวันนี้สถานะปิดงาน แต่เวลาเสร็จอยู่ในอนาคต'),'future completion timestamps are visible');
 assert(!todayHtml.includes('Freight Actual ต่างจาก Standard'),'historical freight comparison is not a today task');
 assert(!todayHtml.includes('0 Orders ค้างจัดรถ'),'zero-value alerts are hidden');
 ui.state.reportYear='2025';
 assert.equal(ui.todayPanel(),todayHtml,'today work is independent of selected report year');
 ui.state.reportYear=year;
+ui.state.data.settings=[{setting_key:'contribution_alert_pct',setting_value:18.5}];
+assert(ui.settingsPage().includes('id="contributionThreshold" type="number" min="0" max="100" step="0.01" value="18.5"'),'Admin settings show the saved policy');
+ui.state.lowContributionDate=`${year}-09-23`;
+assert(ui.profitPage().includes('Invoice ต่ำกว่าเกณฑ์'),'drill-down shows the exception list');
+assert(ui.profitPage().includes('data-action="closeLowContribution"'),'drill-down can return to all invoices');
+ui.state.lowContributionDate=null;
 
 ui.state.data.transfers=[
   {id:'tr1',transfer_no:'TR-1',from_warehouse_id:'w1',to_warehouse_id:'w2',status:'COMPLETED'},
