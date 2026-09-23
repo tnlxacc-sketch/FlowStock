@@ -9,7 +9,7 @@
   <title>FlowStock</title>
   <link rel="stylesheet" href="styles.css?v=1.9.0">
   <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.57.4/dist/umd/supabase.min.js"></script>
-  <script defer src="app.js?v=1.11.0"></script>
+  <script defer src="app.js?v=1.11.1"></script>
 </head>
 <body>
   <div id="loading" class="loading"><div class="spinner"></div><span>กำลังโหลด FlowStock…</span></div>
@@ -21,10 +21,10 @@
         <label>อีเมล<input id="email" type="email" autocomplete="username" required placeholder="name@company.com"></label>
         <label>รหัสผ่าน<input id="password" type="password" autocomplete="current-password" minlength="8" required></label>
         <button class="btn primary wide" type="submit">เข้าสู่ระบบ</button>
-        <button id="forgotBtn" class="text-btn auth-link" type="button">ลืมรหัสผ่าน</button>
+        <button id="forgotBtn" class="text-btn auth-link" type="button">ลืมรหัสผ่าน / ขอรหัสใหม่จาก Admin</button>
         <p id="loginError" class="error" role="alert"></p>
       </form>
-      <button id="signupBtn" class="btn wide" type="button">ขอสร้างบัญชีผู้ใช้</button>
+      <button id="signupBtn" class="btn wide" type="button">สมัครด้วยตนเอง (ทางเลือกสำรอง)</button>
       <form id="signupForm" class="hidden">
         <div id="signupFlowNote" class="alert warn hidden"></div>
         <label>ชื่อ-นามสกุล<input id="signupName" required></label>
