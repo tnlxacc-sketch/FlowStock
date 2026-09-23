@@ -5,7 +5,7 @@ import vm from 'node:vm';
 const source=fs.readFileSync(new URL('../app.js',import.meta.url),'utf8').replace(/\ninit\(\)\.catch[\s\S]*$/,'');
 const context={console,Blob,URL,Intl,crypto,confirm:()=>true,prompt:()=>'',window:{print(){},open(){}},document:{querySelector(){return null},querySelectorAll(){return[]}},supabase:{createClient(){return{}}}};
 vm.createContext(context);
-vm.runInContext(`${source}\nglobalThis.__ui={state,actions,roleMenus,dashboardPage,ordersPage,customersPage,warehousePage,stockPage,countsPage,transfersPage,deliveryPage,profitPage,customer360Page,stockHealthPage,deliveryPerformancePage,costVariancePage,reportsPage,mastersPage,usersPage,settingsPage,dataManagementPage,auditPage,commercialPage,analyticsInvoices,analyticsTrips,analyticsBalances,profitTable,invoiceGross,invoiceContribution,parseCsv,normalizeImport,normalizeOpeningStockImport,movementRows,getReportKpis,serverInvoiceTable};`,context);
+vm.runInContext(`${source}\nglobalThis.__ui={state,actions,roleMenus,dashboardPage,todayPanel,ordersPage,customersPage,warehousePage,stockPage,countsPage,transfersPage,deliveryPage,profitPage,customer360Page,stockHealthPage,deliveryPerformancePage,costVariancePage,reportsPage,mastersPage,usersPage,settingsPage,dataManagementPage,auditPage,commercialPage,analyticsInvoices,analyticsTrips,analyticsBalances,profitTable,invoiceGross,invoiceContribution,parseCsv,normalizeImport,normalizeOpeningStockImport,movementRows,getReportKpis,serverInvoiceTable};`,context);
 
 const ui=context.__ui,year=String(new Date().getFullYear());
 Object.assign(ui.state,{profile:{app_role:'ADMIN',company_id:'co1'},company:{code:'DEMO',is_demo:true,subscription_plan:'DEMO',subscription_status:'ACTIVE',max_users:10,gp_policy:'ACTUAL'},isPlatformAdmin:true,reportYear:year,reportWarehouse:'ALL',reportCustomer:'ALL',countPeriod:'ALL',profitView:'invoice',search:'',page:'dashboard'});
@@ -23,6 +23,17 @@ ui.state.data={
   invoices:[{id:'i1',invoice_no:'INV-1',invoice_date:`${year}-01-03`,customer_id:'c1',revenue:300,product_cost:120,freight_cost:30,other_cost:0,gp_status:'FINAL'}],
   invoiceOrders:[{invoice_id:'i1',order_id:'o1'}],invoiceTrips:[{invoice_id:'i1',trip_id:'t1'}],costs:[{product_id:'p1',cost_month:`${year}-01-01`,unit_cost:60}],expenseTypes:[{id:'e1',code:'TOLL',name:'Toll',category:'DIRECT_EXPENSE',basis:'MANUAL',include_in_contribution:true,active:true}],expenseRates:[],actualExpenses:[],counts:[],countLines:[],periods:[],settings:[],openingBatches:[],openingLines:[],accessRequests:[],users:[],audit:[],tenants:[]
 };
+ui.state.data.todayStatus={date:`${year}-09-23`,orders:1,invoices:5,revenue:963427.2,trips:2,completed_trips:2,future_completed_trips:2,waiting_logistics:0,late_trips:0,stockout_rows:0,low_contribution_invoices:1};
+const todayHtml=ui.todayPanel();
+assert(todayHtml.includes('963,427.2'),"today sales comes from today's invoices");
+assert(todayHtml.includes('5'),'today invoice count is shown');
+assert(todayHtml.includes('1 Invoice วันนี้มี Contribution ต่ำกว่า 12%'),'low margin warning uses today');
+assert(todayHtml.includes('2 เที่ยวส่งวันนี้สถานะปิดงาน แต่เวลาเสร็จอยู่ในอนาคต'),'future completion timestamps are visible');
+assert(!todayHtml.includes('Freight Actual ต่างจาก Standard'),'historical freight comparison is not a today task');
+assert(!todayHtml.includes('0 Orders ค้างจัดรถ'),'zero-value alerts are hidden');
+ui.state.reportYear='2025';
+assert.equal(ui.todayPanel(),todayHtml,'today work is independent of selected report year');
+ui.state.reportYear=year;
 
 ui.state.data.transfers=[
   {id:'tr1',transfer_no:'TR-1',from_warehouse_id:'w1',to_warehouse_id:'w2',status:'COMPLETED'},
