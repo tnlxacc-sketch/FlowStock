@@ -41,6 +41,11 @@ ui.state.lowContributionDate=`${year}-09-23`;
 assert(ui.profitPage().includes('Invoice ต่ำกว่าเกณฑ์'),'drill-down shows the exception list');
 assert(ui.profitPage().includes('data-action="closeLowContribution"'),'drill-down can return to all invoices');
 ui.state.lowContributionDate=null;
+const belowPolicy={total:1,items:[{invoice_no:'INV-LOW',invoice_date:`${year}-09-23`,customer_name:'Demo',products:[],revenue:100,product_cost:90,freight_cost:0,other_cost:0,gp_status:'FINAL'}]};
+assert(ui.serverInvoiceTable(belowPolicy).includes('class="negative">10.00%'),'invoice percent is highlighted under the company threshold');
+ui.state.data.todayStatus.contribution_threshold_pct=5;
+assert(!ui.serverInvoiceTable(belowPolicy).includes('class="negative">10.00%'),'highlight follows an updated company threshold');
+ui.state.data.todayStatus.contribution_threshold_pct=18.5;
 
 ui.state.data.transfers=[
   {id:'tr1',transfer_no:'TR-1',from_warehouse_id:'w1',to_warehouse_id:'w2',status:'COMPLETED'},
