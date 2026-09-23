@@ -5,7 +5,7 @@ import vm from 'node:vm';
 const source=fs.readFileSync(new URL('../app.js',import.meta.url),'utf8').replace(/\ninit\(\)\.catch[\s\S]*$/,'');
 const context={console,Blob,URL,Intl,crypto,confirm:()=>true,prompt:()=>'',window:{print(){},open(){}},document:{querySelector(){return null},querySelectorAll(){return[]}},supabase:{createClient(){return{}}}};
 vm.createContext(context);
-vm.runInContext(`${source}\nglobalThis.__ui={state,actions,roleMenus,dashboardPage,ordersPage,customersPage,warehousePage,stockPage,countsPage,transfersPage,deliveryPage,profitPage,customer360Page,stockHealthPage,deliveryPerformancePage,costVariancePage,reportsPage,mastersPage,usersPage,settingsPage,dataManagementPage,auditPage,commercialPage,analyticsInvoices,analyticsTrips,analyticsBalances,profitTable,invoiceGross,invoiceContribution,parseCsv,normalizeImport,normalizeOpeningStockImport,movementRows,storedAccessPayload};`,context);
+vm.runInContext(`${source}\nglobalThis.__ui={state,actions,roleMenus,dashboardPage,ordersPage,customersPage,warehousePage,stockPage,countsPage,transfersPage,deliveryPage,profitPage,customer360Page,stockHealthPage,deliveryPerformancePage,costVariancePage,reportsPage,mastersPage,usersPage,settingsPage,dataManagementPage,auditPage,commercialPage,analyticsInvoices,analyticsTrips,analyticsBalances,profitTable,invoiceGross,invoiceContribution,parseCsv,normalizeImport,normalizeOpeningStockImport,movementRows,getReportKpis,serverInvoiceTable};`,context);
 
 const ui=context.__ui,year=String(new Date().getFullYear());
 Object.assign(ui.state,{profile:{app_role:'ADMIN',company_id:'co1'},company:{code:'DEMO',is_demo:true,subscription_plan:'DEMO',subscription_status:'ACTIVE',max_users:10,gp_policy:'ACTUAL'},isPlatformAdmin:true,reportYear:year,reportWarehouse:'ALL',reportCustomer:'ALL',countPeriod:'ALL',profitView:'invoice',search:'',page:'dashboard'});
@@ -50,7 +50,7 @@ for(const view of ['product','group','customer','invoice','warehouse']){
   const out=ui.profitPage();
   assert(out.includes(`data-profit-view="${view}"`),`profit tab missing: ${view}`);
   assert(out.includes(`data-profit-view="${view}"`+'>')||out.includes(`data-profit-view="${view}"`),`profit tab is not rendered: ${view}`);
-  assert(out.includes('<table'),`profit view ${view} must contain a data table`);
+  assert(out.includes('<table')||(view==='invoice'&&out.includes('กำลังโหลดรายละเอียด')),`profit view ${view} must contain a data table or loading state`);
 }
 
 assert.equal(ui.analyticsInvoices().length,1,'baseline invoice filter');
@@ -63,6 +63,8 @@ assert(ui.profitPage().includes('GP Margin %'),'profit report shows gross margin
 assert(ui.profitPage().includes('id="reportMonth"'),'profit report has month filter');
 assert(ui.profitPage().includes('id="reportProduct"'),'profit report has product filter');
 assert(ui.profitPage().includes('ปริมาณส่ง'),'profit report shows delivered quantity');
+ui.state.data.invoicePage={total:1,page:0,items:[{invoice_no:'INV-1',order_no:'SO-1',invoice_date:`${year}-01-03`,customer_name:'Alpha',products:[{code:'AAA-01',name:'Product A',received_qty:2,uom:'EA',warehouse:'WH1'}],order_qty:2,received_qty:2,trip_no:'TR-1',plate_no:'1AA-1111',driver_name:'Driver One',revenue:300,product_cost:120,freight_cost:30,other_cost:0,gp_status:'FINAL'}]};
+ui.state.data.invoicePageKey=JSON.stringify({p_year:Number(year),p_month:null,p_warehouse_id:null,p_customer_id:null,p_product_id:null,p_vehicle_id:null,p_search:'',p_page:0});
 assert(ui.profitPage().includes('Product A'),'invoice profit detail shows product name');
 assert(ui.profitPage().includes('Driver One'),'invoice profit detail shows driver context');
 const deliveryPerformance=ui.deliveryPerformancePage();
@@ -119,7 +121,7 @@ assert.equal(typeof ui.actions.openingStock,'function','opening stock action han
 
 ui.state.data.movements.push({id:'m2',product_id:'p1',warehouse_id:'w1',movement_type:'ORDER_ISSUE',reference_no:'SO-1',qty:-2,created_at:`${year}-01-03`});
 assert.equal(ui.movementRows().length,2,'movement rows include both In and Out');
-assert.equal(ui.movementRows()[0].balanceAfter,8,'movement running balance');
+assert.equal(ui.movementRows()[0].qty,-2,'newest movement preserves actual quantity');
 ui.state.movementType='OUT';
 assert.equal(ui.movementRows().length,1,'movement type filter');
 ui.state.movementType='ALL';
@@ -130,7 +132,7 @@ assert(ui.countsPage().includes('id="countPeriod"'),'stock count results have a 
 ui.state.countPeriod=`${year}-02`;
 assert(!ui.countsPage().includes('SC-1'),'count period filter excludes other months');
 ui.state.countPeriod='ALL';
-assert(ui.stockPage().includes('Balance'),'stock movement includes running balance column');
+assert(!ui.stockPage().includes('<th class="sortable" data-col="7">Balance</th>'),'partial movement history must not invent a running balance');
 const dataManagement=ui.dataManagementPage();
 assert(dataManagement.includes('ล้างธุรกรรมทดลอง'),'demo admin can reset transaction data');
 assert(dataManagement.includes('data-action="deleteDemoRecord"'),'demo admin can delete supported individual records');
@@ -156,11 +158,9 @@ assert(!ownerCounts.includes('data-action="finalizeCount"'),'owner cannot finali
 assert(ui.roleMenus.OWNER.some(x=>x[0]==='counts'),'owner menu exposes count results');
 assert(source.includes("!can('WAREHOUSE','ADMIN')||c.status!=='DRAFT'"),'count detail enforces owner read-only mode');
 assert(ui.costVariancePage().includes('<th class="sortable num" data-col="1">Standard'),'numeric table headers align with numeric values');
-const storedRequest=ui.storedAccessPayload({user_metadata:{flowstock_access:{mode:'REQUEST',full_name:'New User',employee_code:'E001',requested_role:'WAREHOUSE',company_code:'DEMO'}}});
-assert.equal(storedRequest.company_code,'DEMO','confirmed signup retains company code for automatic access request');
-assert.equal(storedRequest.requested_role,'WAREHOUSE','confirmed signup retains requested role');
-assert.equal(ui.storedAccessPayload({user_metadata:{flowstock_access:{mode:'REQUEST',full_name:'Bad User',requested_role:'ADMIN',company_code:'DEMO'}}}),null,'self signup cannot request ADMIN role');
-assert(source.includes("options:{data:{flowstock_access:payload}}"),'signup stores pending access payload before email confirmation');
-assert(source.includes('await submitAccess(payload)'),'confirmed login automatically submits the stored access request');
+assert(!source.includes('db.auth.signUp('),'self signup has been removed');
+assert(!fs.readFileSync(new URL('../index.html',import.meta.url),'utf8').includes('id="signupBtn"'),'self signup button removed');
+assert(source.includes("db.rpc('report_kpis'"),'KPI cards use server aggregation');
+assert(source.includes("db.rpc('report_invoice_page'"),'invoice details use server paging');
 
-console.log(JSON.stringify({pagesRendered:pages.length,actionReferences:new Set(sourceActions).size,navigationReferences:new Set(goRefs).size,profitViews:5,profitFormulas:2,gpMargin:true,countPeriodFilter:true,demoDataManagement:true,masterImport:true,openingStockImport:true,controlledVehicleType:true,ownerStockViews:['combined','by-warehouse'],ownerCountReadOnly:true,emailConfirmationAccessRequest:true,visibleButtonsWired:pageButtons.length,filtersTested:['year','warehouse','customer','count-period','search','sort-binding']},null,2));
+console.log(JSON.stringify({pagesRendered:pages.length,actionReferences:new Set(sourceActions).size,navigationReferences:new Set(goRefs).size,profitViews:5,profitFormulas:2,gpMargin:true,countPeriodFilter:true,demoDataManagement:true,masterImport:true,openingStockImport:true,controlledVehicleType:true,ownerStockViews:['combined','by-warehouse'],ownerCountReadOnly:true,adminOnlyAccounts:true,visibleButtonsWired:pageButtons.length,filtersTested:['year','warehouse','customer','count-period','search','sort-binding']},null,2));

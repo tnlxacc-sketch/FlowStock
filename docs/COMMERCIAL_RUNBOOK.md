@@ -9,18 +9,17 @@
 ## New customer onboarding
 
 1. Platform Admin opens **Commercial Control** and creates the company.
-2. Copy the one-time onboarding code. It expires after seven days and can be used once.
-3. The customer's first Admin signs up using the company code and onboarding code.
-4. Additional employees sign up with the company code only.
-5. Company Admin approves each request and assigns the correct role.
-6. Company Admin creates master data before the first transaction.
+2. Platform Admin creates the first Company Admin from the company management screen and securely passes on the temporary password.
+3. The first Company Admin signs in and sets a new password.
+4. Company Admin creates each employee and assigns a role from **Users / Roles**.
+5. Company Admin creates master data before the first transaction.
 
 ## Tenant lifecycle
 
 - `TRIAL` and `ACTIVE`: normal access.
 - `SUSPENDED` and `EXPIRED`: operational data and transactions are blocked; data is retained.
 - Changing status is audited.
-- User approval is blocked when the tenant reaches `max_users`.
+- Admin user creation is blocked when the tenant reaches `max_users`.
 
 ## POD documents
 
@@ -38,7 +37,11 @@
 4. Run transaction, role, cross-tenant, and Storage tests.
 5. Push the tested commit to `main`.
 6. Confirm GitHub Pages deployment and compare deployed asset hashes.
-7. Run browser smoke tests for login, signup, navigation, and responsive layout.
+7. Run browser smoke tests for login, Admin user creation, navigation, and responsive layout.
+
+## Year end
+
+Use [`YEAR_END.md`](YEAR_END.md) to back up the database and POD files, register the verified archive, and carry remaining stock to the new year. Do not use the Demo reset as a production backup or year-end process.
 
 ## Production owner actions
 
@@ -46,4 +49,3 @@
 - Never place service-role or secret keys in frontend code.
 - Before storing paying-customer data, review the Supabase paid plan, backups, leaked-password protection, custom SMTP, and recovery objectives.
 - Review Security Advisor after every database migration.
-

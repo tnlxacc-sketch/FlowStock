@@ -10,11 +10,11 @@ Record tester, date, company, role, expected result, actual result, and evidence
 
 ## Access and roles
 
-- First Admin can activate with a valid one-time onboarding code.
-- Reuse and expired onboarding codes are rejected.
-- Employee signup requires a valid company code and Admin approval.
+- Public signup is absent; an unprovisioned Auth account cannot access company data.
+- Platform Admin creates a Company's first Admin, who must change the temporary password.
+- Company Admin creates employees and assigns their roles; other roles cannot create accounts.
 - Sales, Warehouse, Logistics, Owner, and Admin each see only their permitted menus and actions.
-- User-limit enforcement blocks approval beyond the plan limit.
+- User-limit enforcement blocks creation beyond the plan limit.
 
 ## End-to-end transaction
 
@@ -33,13 +33,14 @@ Record tester, date, company, role, expected result, actual result, and evidence
 - Upload PDF, JPEG, and PNG POD files up to 10 MB.
 - Reject unsupported and oversized files.
 - Open a POD through a short-lived signed URL.
-- Download Orders, Stock, Profit, and Audit CSV files.
+- Verify that recent-window CSV files are labeled partial and KPI totals include the full selected period.
+- Verify invoice detail pagination and customer summaries across more than 300 invoices.
+- Verify a registered backup is required before year-end rollover, Master/User/Audit are preserved, and stock carries forward. Test restore and rollover only in an isolated database copy.
 - Print the Profit report to PDF.
 
 ## Usability and recovery
 
 - Desktop, tablet, and mobile layouts remain usable.
 - Sorting preserves the visible data and works for text, date, and numeric columns.
-- Forgot-password email opens the reset flow and accepts a password of at least eight characters.
+- Admin can reset a user's temporary password; the first login requires a new password.
 - Refresh and sign-out do not leave stale company data visible.
-

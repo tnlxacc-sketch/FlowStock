@@ -24,8 +24,8 @@ role checks, request idempotency, and audit logging.
 
 - Company data is isolated by tenant-aware RLS.
 - Platform Admin can create tenants and control plan, user limit, and status.
-- A one-time onboarding code activates the first Company Admin.
-- Company users request access with their company code and require Admin approval.
+- Platform Admin creates the first Company Admin; Company Admin creates all other accounts.
+- Self-service access requests and activation codes are disabled for signed-in users.
 - POD files use a private Storage bucket with tenant-scoped policies and a 10 MB limit.
 - Suspended or expired tenants cannot read operational data or post transactions.
 - CSV exports and print-to-PDF are available for operational reporting.
@@ -35,8 +35,17 @@ role checks, request idempotency, and audit logging.
   sales, freight, transport vendors, on-time delivery, and trip detail.
 - Demo admins can atomically import historical Sales Orders, Order Lines, and
   Invoices for presentations without changing current stock balances.
+- Year-end rollover requires a verified full database and POD backup before
+  transactional cleanup; it preserves master data, users, audit history, and
+  carries remaining stock into the new year.
+
+Invoice KPIs and customer summaries are calculated in Postgres; Invoice detail
+is loaded 50 rows at a time. Operational screens show a recent window and their
+CSV downloads are partial. The current build has not been benchmarked with
+500,000 annual sales records.
 
 Operational handoff: [`docs/COMMERCIAL_RUNBOOK.md`](docs/COMMERCIAL_RUNBOOK.md)
 UAT checklist: [`docs/UAT_CHECKLIST.md`](docs/UAT_CHECKLIST.md)
+Year-end runbook: [`docs/YEAR_END.md`](docs/YEAR_END.md)
 
 Live site: https://tnlxacc-sketch.github.io/FlowStock/
