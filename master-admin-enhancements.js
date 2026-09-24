@@ -65,7 +65,8 @@
     const form=by('#masterForm'); if(!form)return;
     form.onsubmit=async e=>{
       e.preventDefault(); const kind=form.dataset.kind,id=form.dataset.id||null,meta=MASTER_META[kind],payload={};
-      all('#masterForm [data-master-field]').forEach(x=>payload[x.dataset.masterField]=x.value.trim());\n      if(kind==='products'){const min=Number(payload.minimum_stock||0);if(!Number.isFinite(min)||min<0)return toast('Minimum Stock ต้องเป็น 0 หรือมากกว่า',true);payload.minimum_stock=min;}
+      all('#masterForm [data-master-field]').forEach(x=>payload[x.dataset.masterField]=x.value.trim());
+      if(kind==='products'){const min=Number(payload.minimum_stock||0);if(!Number.isFinite(min)||min<0)return toast('Minimum Stock ต้องเป็น 0 หรือมากกว่า',true);payload.minimum_stock=min;}
       payload.active=String(payload.active)!=='false'; payload.code=normalizeCode(payload.code);
       if(!payload.code||(!payload.name&&kind!=='vehicles'))return toast('กรอกข้อมูลให้ครบ',true);
       const dup=masterList(kind).find(x=>String(x.code||'').toUpperCase()===payload.code&&String(x.id)!==String(id||''));
