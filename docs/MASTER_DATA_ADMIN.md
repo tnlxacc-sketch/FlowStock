@@ -121,3 +121,12 @@ Rules:
 - Executive Dashboard shows the number of products below Minimum and can drill directly to Stock.
 - Stock menu includes a checkbox **แสดงเฉพาะ Stock ต่ำกว่า Min**.
 - This addition does not change stock posting, allocation, issue, receipt, transfer, or stock-count calculation rules.
+
+
+## Minimum Stock (v1.14.6)
+
+- Product Master has `Minimum Stock` as a non-negative company-wide threshold.
+- `0` means no minimum threshold is configured.
+- Low-stock status compares total On Hand across all company warehouses with Product Minimum Stock.
+- This field is used only for Executive alerting and Stock filtering.
+- It does not change inventory posting, reservation, allocation, receipt, issue, transfer, or stock-count calculations.
