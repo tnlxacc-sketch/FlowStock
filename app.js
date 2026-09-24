@@ -37,6 +37,76 @@ function getInvoicePage(){return state.data.invoicePageKey===invoicePageKey()?st
 async function refreshInvoicePage(){const key=invoicePageKey(),p=reportParams(),{data,error}=state.lowContributionDate?await db.rpc('report_low_contribution_page',{p_date:state.lowContributionDate,p_page:state.reportPage}):state.lowContributionPeriod?await db.rpc('report_low_contribution_period_page',{...p,p_page:state.reportPage}):await db.rpc('report_invoice_page',invoicePageParams());if(error)throw error;if(key===invoicePageKey()){state.data.invoicePage=data;state.data.invoicePageKey=key;render()}}
 async function refreshReportData(){await Promise.all([refreshReportKpis(),refreshInvoicePage(),refreshCustomerSummary(),refreshMonthlySummary()])}
 
+function searchableNormalize(v){
+  return String(v??'').normalize('NFKC').toLocaleLowerCase('th-TH').replace(/\s+/g,' ').trim();
+}
+function shouldEnhanceSelect(sel){
+  if(!sel||sel.tagName!=='SELECT'||sel.dataset.searchEnhanced==='1'||sel.dataset.searchable==='off'||sel.multiple||Number(sel.size||0)>1)return false;
+  const opts=[...sel.options],hint=((sel.id||'')+' '+(sel.className||'')+' '+(sel.getAttribute('aria-label')||'')).toLowerCase();
+  const masterHint=/(customer|product|supplier|vendor|warehouse|driver|vehicle|expense|group|ลูกค้า|สินค้า|คลัง|รถ|คนขับ)/i.test(hint);
+  const codedOptions=opts.some(o=>(o.textContent||'').includes('•'));
+  return masterHint||codedOptions||opts.length>=20;
+}
+function enhanceSearchableSelect(sel){
+  if(!shouldEnhanceSelect(sel))return;
+  sel.dataset.searchEnhanced='1';
+  const wrap=document.createElement('div');
+  wrap.className='searchable-select';
+  sel.parentNode.insertBefore(wrap,sel);
+  wrap.appendChild(sel);
+  sel.classList.add('searchable-native-select');
+  const input=document.createElement('input');
+  input.type='text';input.autocomplete='off';input.spellcheck=false;
+  input.className='searchable-select-input';
+  input.setAttribute('role','combobox');input.setAttribute('aria-autocomplete','list');input.setAttribute('aria-expanded','false');
+  input.placeholder='พิมพ์รหัสหรือชื่อเพื่อค้นหา…';
+  const list=document.createElement('div');
+  list.className='searchable-select-list hidden';list.setAttribute('role','listbox');
+  wrap.insertBefore(input,sel);wrap.appendChild(list);
+  const wasRequired=sel.required;
+  if(wasRequired){sel.required=false;input.required=true;}
+  let activeIndex=-1,lastValidValue=sel.value;
+  const optionText=opt=>String(opt?.textContent||'').trim();
+  const selectedOption=()=>[...sel.options].find(o=>String(o.value)===String(sel.value));
+  const syncFromSelect=()=>{const opt=selectedOption();input.value=opt&&opt.value!==''?optionText(opt):'';lastValidValue=sel.value;input.setCustomValidity(wasRequired&&!sel.value?'กรุณาเลือกรายการจากผลค้นหา':'');};
+  const close=()=>{list.classList.add('hidden');input.setAttribute('aria-expanded','false');activeIndex=-1;};
+  const choose=opt=>{if(!opt)return;sel.value=opt.value;lastValidValue=sel.value;input.value=opt.value===''?'':optionText(opt);input.setCustomValidity(wasRequired&&!sel.value?'กรุณาเลือกรายการจากผลค้นหา':'');close();sel.dispatchEvent(new Event('change',{bubbles:true}));};
+  const renderOptions=(query='')=>{
+    const tokens=searchableNormalize(query).split(' ').filter(Boolean);
+    const all=[...sel.options];
+    const matches=all.filter(opt=>{const text=searchableNormalize(optionText(opt));return tokens.every(t=>text.includes(t));});
+    list.innerHTML='';
+    const visible=matches.slice(0,80);
+    visible.forEach((opt,idx)=>{const row=document.createElement('button');row.type='button';row.className='searchable-select-option';row.setAttribute('role','option');row.dataset.index=String(idx);row.textContent=optionText(opt);if(String(opt.value)===String(sel.value))row.classList.add('selected');row.onmousedown=e=>{e.preventDefault();choose(opt)};list.appendChild(row);});
+    if(!visible.length){const empty=document.createElement('div');empty.className='searchable-select-empty';empty.textContent='ไม่พบรายการ';list.appendChild(empty);}
+    else if(matches.length>visible.length){const more=document.createElement('div');more.className='searchable-select-more';more.textContent='พบ '+matches.length+' รายการ • พิมพ์เพิ่มเพื่อค้นหาให้แคบลง';list.appendChild(more);}
+    list.classList.remove('hidden');input.setAttribute('aria-expanded','true');activeIndex=-1;
+  };
+  const markActive=idx=>{const rows=[...list.querySelectorAll('.searchable-select-option')];if(!rows.length)return;activeIndex=Math.max(0,Math.min(idx,rows.length-1));rows.forEach((r,i)=>r.classList.toggle('active',i===activeIndex));rows[activeIndex]?.scrollIntoView({block:'nearest'});};
+  syncFromSelect();
+  input.addEventListener('focus',()=>{input.select();renderOptions('')});
+  input.addEventListener('input',()=>{renderOptions(input.value)});
+  input.addEventListener('keydown',e=>{
+    const rows=[...list.querySelectorAll('.searchable-select-option')];
+    if(e.key==='ArrowDown'){e.preventDefault();if(list.classList.contains('hidden'))renderOptions(input.value);markActive(activeIndex+1)}
+    else if(e.key==='ArrowUp'){e.preventDefault();markActive(activeIndex<=0?0:activeIndex-1)}
+    else if(e.key==='Enter'&&!list.classList.contains('hidden')&&rows.length){e.preventDefault();const idx=activeIndex>=0?activeIndex:0;rows[idx]?.dispatchEvent(new MouseEvent('mousedown',{bubbles:true}))}
+    else if(e.key==='Escape'){e.preventDefault();const opt=[...sel.options].find(o=>String(o.value)===String(lastValidValue));sel.value=lastValidValue;input.value=opt&&opt.value!==''?optionText(opt):'';close()}
+  });
+  input.addEventListener('blur',()=>setTimeout(()=>{if(!list.matches(':hover')){const opt=[...sel.options].find(o=>String(o.value)===String(lastValidValue));sel.value=lastValidValue;input.value=opt&&opt.value!==''?optionText(opt):'';close()}},120));
+  sel.addEventListener('change',syncFromSelect);
+}
+function enhanceSearchableSelects(root=document){
+  const nodes=root?.matches?.('select')?[root]:[...(root?.querySelectorAll?.('select')||[])];
+  nodes.forEach(enhanceSearchableSelect);
+}
+let searchableSelectObserver=null;
+function startSearchableSelectObserver(){
+  if(searchableSelectObserver)return;
+  searchableSelectObserver=new MutationObserver(mutations=>{mutations.forEach(m=>m.addedNodes.forEach(node=>{if(node?.nodeType===1)enhanceSearchableSelects(node)}));});
+  searchableSelectObserver.observe(document.body,{childList:true,subtree:true});
+  enhanceSearchableSelects(document);
+}
 function setLoading(on){$('#loading').classList.toggle('hidden',!on)}
 function toast(message,error=false){const el=$('#toast');el.textContent=message;el.classList.toggle('error-toast',error);el.classList.add('show');clearTimeout(toast.t);toast.t=setTimeout(()=>el.classList.remove('show'),2800)}
 function modal(html){$('#modalBody').innerHTML=html;$('#modal').classList.remove('hidden');setTimeout(()=>$('#modalBody input, #modalBody select')?.focus(),30)}
@@ -633,4 +703,5 @@ async function setPeriod(date,status,reason=null){if(status==='CLOSED'&&!confirm
 function reopenPeriod(date){modal(`<h2>Reopen Period ${esc(date.slice(0,7))}</h2><form id="reopenForm"><div class="form"><label class="full">เหตุผลที่เปิดงวดใหม่<textarea id="reopenReason" required></textarea></label></div><button class="btn primary">ยืนยัน Reopen</button></form>`);$('#reopenForm').onsubmit=async e=>{e.preventDefault();await setPeriod(date,'OPEN',$('#reopenReason').value.trim());closeModal()}}
 async function runRpc(name,args,message){$('#modalBody').dataset.busy='1';setLoading(true);try{const {data,error}=await db.rpc(name,args);if(error)throw error;toast(message(data));$('#modalBody').dataset.busy='0';closeModal();await loadData();render()}catch(e){fail(e)}finally{$('#modalBody').dataset.busy='0';setLoading(false)}}
 
+startSearchableSelectObserver();
 init().catch(e=>{setLoading(false);showLogin();$('#loginError').textContent=errorText(e);console.error(e)});
