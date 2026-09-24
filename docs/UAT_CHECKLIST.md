@@ -86,3 +86,20 @@ Record tester, date, company, role, expected result, actual result, and evidence
 10. Confirm Export Stock contains Minimum Stock and low-stock status.
 11. Confirm Download Stock / Export Movement / Send Report buttons are wired.
 12. Static wiring audit: every `data-action` has a handler; every report/movement/search filter id has an event binding; all page functions referenced by navigation exist.
+
+
+## v1.15.1 Searchable Dropdown UAT
+
+1. Product selections allow typing Product Code or Product Name and show matching results.
+2. Customer selections allow typing Customer Code or Customer Name.
+3. Vendor / Supplier selections allow typing Vendor Code or Vendor Name.
+4. Warehouse, Vehicle, Driver, Expense Type and other master-backed dropdowns use the same search behavior.
+5. Report filters for Customer / Product / Warehouse / Vehicle remain connected to the existing report state and calculations.
+6. Selecting a search result updates the underlying native select and triggers the existing change event; no business logic is duplicated in the search control.
+7. Order line Product / Warehouse search still updates Available Stock warning correctly.
+8. Goods Receipt Product / Warehouse / Vendor search still posts through the existing RPC unchanged.
+9. Transfer Product / From Warehouse / To Warehouse search still uses the existing transfer flow.
+10. Delivery Vehicle / Driver / Vendor search still uses the existing delivery flow.
+11. Keyboard UAT: focus, type, Arrow Up/Down, Enter, Escape.
+12. Mobile UAT: tap search field, type Thai/English/code, select result without horizontal overflow.
+13. Short dropdowns such as Status, Month, Plan and Role remain normal native dropdowns unless they contain a large master list.
