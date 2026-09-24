@@ -141,8 +141,12 @@ async function loadData(){
     }else state.data[name]=result?.data??[];
   };
   const runBatch=async entries=>{
-    const results=await Promise.all(entries.map(([,query])=>query));
-    results.forEach((result,i)=>store(entries[i][0],result));
+    const concurrency=3;
+    for(let i=0;i<entries.length;i+=concurrency){
+      const chunk=entries.slice(i,i+concurrency);
+      const results=await Promise.all(chunk.map(([,query])=>query));
+      results.forEach((result,j)=>store(chunk[j][0],result));
+    }
   };
 
   try{
