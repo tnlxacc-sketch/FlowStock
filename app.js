@@ -68,48 +68,155 @@ async function login(e){e.preventDefault();$('#loginError').textContent='';setLo
 function showLogin(){state.session=null;state.profile=null;state.company=null;state.isPlatformAdmin=false;state.page='dashboard';setLoading(false);$('#shell').classList.add('hidden');$('#authView').classList.remove('hidden');$('#loginForm').classList.remove('hidden')}
 async function startApp(session){
   setLoading(true);state.session=session;
-  const {data,error}=await db.rpc('get_my_context');
-  if(error){throw error}
-  if(!data||!data.active){await db.auth.signOut();showLogin();$('#loginError').textContent='บัญชีนี้ยังไม่ได้สร้างหรือถูกปิดใช้งาน กรุณาติดต่อ Admin บริษัท';return}
-  state.profile=data;state.company=data.company;state.isPlatformAdmin=Boolean(data.is_platform_admin);$('#companyName').textContent=data.company?.name||'FlowStock';$('#roleName').textContent=roleThai[data.app_role]||data.app_role;$('#sideUser').textContent=`${data.full_name} • ${data.employee_code||''}`;
-  if(data.must_change_password){$('#authView').classList.add('hidden');$('#shell').classList.remove('hidden');$('#nav').innerHTML='';$('#page').innerHTML=head('ตั้งรหัสผ่านใหม่','บัญชีนี้ใช้รหัสผ่านชั่วคราวและยังไม่เปิดให้เข้าถึงข้อมูลบริษัท')+'<div class="panel"><div class="alert warn">กรุณาตั้งรหัสผ่านใหม่ก่อนเริ่มใช้งาน FlowStock</div></div>';setLoading(false);forcePasswordChangeModal();return}
-  if(!data.active||!data.company?.active||['SUSPENDED','EXPIRED'].includes(data.company?.subscription_status)||(data.company?.subscription_status==='TRIAL'&&data.company.trial_ends_at&&new Date(data.company.trial_ends_at)<=new Date())){state.page='inactive';renderNav();$('#authView').classList.add('hidden');$('#shell').classList.remove('hidden');setLoading(false);render();return}
-  renderNav();await loadData();$('#authView').classList.add('hidden');$('#shell').classList.remove('hidden');setLoading(false);render();
+  try{
+    const {data,error}=await db.rpc('get_my_context');
+    if(error)throw error;
+    if(!data||!data.active){
+      await db.auth.signOut();
+      showLogin();
+      $('#loginError').textContent='บัญชีนี้ยังไม่ได้สร้างหรือถูกปิดใช้งาน กรุณาติดต่อ Admin บริษัท';
+      return;
+    }
+    state.profile=data;state.company=data.company;state.isPlatformAdmin=Boolean(data.is_platform_admin);
+    $('#companyName').textContent=data.company?.name||'FlowBiz One';
+    $('#roleName').textContent=roleThai[data.app_role]||data.app_role;
+    $('#sideUser').textContent=`${data.full_name} • ${data.employee_code||''}`;
+
+    if(data.must_change_password){
+      $('#authView').classList.add('hidden');$('#shell').classList.remove('hidden');$('#nav').innerHTML='';
+      $('#page').innerHTML=head('ตั้งรหัสผ่านใหม่','บัญชีนี้ใช้รหัสผ่านชั่วคราวและยังไม่เปิดให้เข้าถึงข้อมูลบริษัท')+'<div class="panel"><div class="alert warn">กรุณาตั้งรหัสผ่านใหม่ก่อนเริ่มใช้งาน FlowBiz One</div></div>';
+      setLoading(false);forcePasswordChangeModal();return;
+    }
+    if(!data.active||!data.company?.active||['SUSPENDED','EXPIRED'].includes(data.company?.subscription_status)||(data.company?.subscription_status==='TRIAL'&&data.company.trial_ends_at&&new Date(data.company.trial_ends_at)<=new Date())){
+      state.page='inactive';renderNav();$('#authView').classList.add('hidden');$('#shell').classList.remove('hidden');setLoading(false);render();return;
+    }
+
+    renderNav();
+    $('#authView').classList.add('hidden');
+    $('#shell').classList.remove('hidden');
+    $('#page').innerHTML='<div class="panel"><h3>กำลังเตรียมข้อมูลบริษัท…</h3><p class="muted">เข้าสู่ระบบสำเร็จแล้ว กำลังโหลดข้อมูลล่าสุด</p></div>';
+    setLoading(false);
+
+    try{
+      await loadData();
+      render();
+    }catch(loadError){
+      console.error('Initial data load failed',loadError);
+      setLoading(false);
+      $('#page').innerHTML=head('โหลดข้อมูลไม่สำเร็จ','เข้าสู่ระบบสำเร็จแล้ว แต่ข้อมูลบางส่วนตอบสนองช้าหรือเกิดข้อผิดพลาด')+'<div class="panel"><div class="alert danger">ระบบไม่พาคุณกลับไปหน้า Login เพื่อป้องกันความสับสน กรุณาลองโหลดข้อมูลอีกครั้ง</div><button class="btn primary" id="retryInitialLoad">ลองโหลดข้อมูลอีกครั้ง</button></div>';
+      const retry=$('#retryInitialLoad');
+      if(retry)retry.onclick=async()=>{setLoading(true);try{await loadData();render()}catch(e){fail(e)}finally{setLoading(false)}};
+    }
+  }catch(err){
+    console.error('startApp failed',err);
+    setLoading(false);
+    state.session=null;
+    showLogin();
+    $('#loginError').textContent='ไม่สามารถตรวจสอบบัญชีผู้ใช้ได้ กรุณาลองใหม่';
+  }
 }
 function renderNav(){const menus=state.page==='inactive'?[]:[...(roleMenus[state.profile.app_role]||roleMenus.SALES)];if(state.isPlatformAdmin)menus.push(['commercial','◆','Commercial Control']);$('#nav').innerHTML=menus.map(m=>`<button class="nav-btn ${state.page===m[0]?'active':''}" data-page="${m[0]}"><span class="nav-icon">${m[1]}</span>${m[2]}</button>`).join('');$$('.nav-btn').forEach(b=>b.onclick=()=>go(b.dataset.page))}
 function go(page){state.lowContributionDate=null;state.lowContributionPeriod=false;state.page=page;state.search='';state.reportPage=0;if(page!=='profit')state.reportCustomer='ALL';renderNav();$('#sidebar').classList.remove('open');render();if(page==='profit')refreshInvoicePage().catch(fail);if(page==='dashboard'||page==='executive')refreshTodayStatus().catch(fail)}
 
 async function loadData(){
   setLoading(true);
-  const queries={
-    customers:db.from('customers').select('*').order('code'),productGroups:db.from('product_groups').select('*').order('code'),products:db.from('products').select('*').order('code'),warehouses:db.from('warehouses').select('*').order('code'),suppliers:db.from('suppliers').select('*').order('code'),vehicleTypes:db.from('vehicle_types').select('*').order('code'),vehicles:db.from('vehicles').select('*').order('code'),drivers:db.from('drivers').select('*').order('code'),
-    balances:db.from('stock_balances').select('*'),movements:can('WAREHOUSE','LOGISTICS','ADMIN')?db.from('stock_movements').select('*').order('created_at',{ascending:false}).limit(300):Promise.resolve({data:[],error:null}),
-    orders:db.from('orders').select('*').order('created_at',{ascending:false}).limit(300),
-    receipts:db.from('goods_receipts').select('*').order('receipt_date',{ascending:false}).limit(300),transfers:db.from('transfers').select('*').order('transfer_no',{ascending:false}).limit(300),transferLines:db.from('transfer_lines').select('*').limit(1000),
-    trips:db.from('delivery_trips').select('*').order('planned_start',{ascending:false}).limit(300),deliveryDocs:db.from('delivery_documents').select('*').order('created_at',{ascending:false}).limit(300),invoices:db.from('invoices').select('*').order('invoice_date',{ascending:false}).limit(300),
-    costs:db.from('monthly_product_costs').select('*').order('cost_month',{ascending:false}),expenseTypes:db.from('expense_types').select('*').order('code'),expenseRates:db.from('expense_rates').select('*').order('effective_from',{ascending:false}),actualExpenses:db.from('actual_expenses').select('*').limit(300),counts:db.from('stock_counts').select('*').order('snapshot_at',{ascending:false}).limit(300),countLines:db.from('stock_count_lines').select('*').limit(1000),periods:db.from('period_closes').select('*').order('period_month',{ascending:false}),settings:db.from('app_settings').select('*'),openingBatches:can('ADMIN','OWNER')?db.from('opening_stock_batches').select('*').order('opening_date',{ascending:false}).limit(100):Promise.resolve({data:[],error:null}),openingLines:can('ADMIN','OWNER')?db.from('opening_stock_lines').select('*').limit(1000):Promise.resolve({data:[],error:null}),users:can('ADMIN')?db.rpc('admin_list_users'):Promise.resolve({data:[],error:null}),audit:db.from('audit_logs').select('*').order('created_at',{ascending:false}).limit(200),tenants:state.isPlatformAdmin?db.rpc('platform_list_companies'):Promise.resolve({data:[],error:null}),reportKpis:db.rpc('report_kpis',reportParams()),todayStatus:db.rpc('report_today_status'),invoicePage:db.rpc('report_invoice_page',invoicePageParams()),customerSummary:db.rpc('report_customer_summary',(()=>{const p=reportParams();return{p_year:p.p_year,p_month:p.p_month,p_warehouse_id:p.p_warehouse_id,p_product_id:p.p_product_id,p_vehicle_id:p.p_vehicle_id}})()),monthlySummary:db.rpc('report_monthly_summary',(()=>{const p=reportParams();return{p_year:p.p_year,p_customer_id:p.p_customer_id,p_warehouse_id:p.p_warehouse_id,p_product_id:p.p_product_id,p_vehicle_id:p.p_vehicle_id}})())
+  const store=(name,result)=>{
+    if(result?.error){
+      if(name==='audit'&&!can('ADMIN','OWNER'))state.data.audit=[];
+      else throw result.error;
+    }else state.data[name]=result?.data??[];
   };
-  const entries=Object.entries(queries),results=await Promise.all(entries.map(x=>x[1]));
-  results.forEach((r,i)=>{if(r.error){if(entries[i][0]==='audit'&&!can('ADMIN','OWNER'))state.data.audit=[];else throw r.error}else state.data[entries[i][0]]=r.data??[]});
-  const related={
-    orderLines:['order_lines','order_id',(state.data.orders||[]).map(x=>x.id)],
-    tripLines:['delivery_trip_lines','trip_id',(state.data.trips||[]).map(x=>x.id)],
-    invoiceOrders:['invoice_orders','invoice_id',(state.data.invoices||[]).map(x=>x.id)],
-    invoiceTrips:['invoice_trips','invoice_id',(state.data.invoices||[]).map(x=>x.id)]
+  const runBatch=async entries=>{
+    const results=await Promise.all(entries.map(([,query])=>query));
+    results.forEach((result,i)=>store(entries[i][0],result));
   };
-  const relatedEntries=Object.entries(related);
-  const relatedResults=await Promise.all(relatedEntries.map(async([,args])=>{
-    if(!args[2].length)return [];
-    const rows=[];for(let offset=0;;offset+=1000){let q=db.from(args[0]).select('*').in(args[1],args[2]).order(args[1]).order(args[0]==='invoice_orders'?'order_id':args[0]==='invoice_trips'?'trip_id':'id');const {data,error}=await q.range(offset,offset+999);if(error)throw error;rows.push(...(data||[]));if((data||[]).length<1000)break}return rows
-  }));
-  relatedResults.forEach((rows,i)=>{state.data[relatedEntries[i][0]]=rows});
-  state.data.reportKpisKey=reportKey();
-  state.data.invoicePageKey=invoicePageKey();
-  state.data.customerSummaryKey=reportKey();
-  state.data.monthlySummaryKey=reportKey();
-  setLoading(false);
-}
 
+  try{
+    const batch1=[
+      ['customers',db.from('customers').select('*').order('code')],
+      ['productGroups',db.from('product_groups').select('*').order('code')],
+      ['products',db.from('products').select('*').order('code')],
+      ['warehouses',db.from('warehouses').select('*').order('code')],
+      ['suppliers',db.from('suppliers').select('*').order('code')],
+      ['vehicleTypes',db.from('vehicle_types').select('*').order('code')],
+      ['vehicles',db.from('vehicles').select('*').order('code')],
+      ['drivers',db.from('drivers').select('*').order('code')]
+    ];
+    await runBatch(batch1);
+
+    const batch2=[
+      ['balances',db.from('stock_balances').select('*')],
+      ['movements',can('WAREHOUSE','LOGISTICS','ADMIN')?db.from('stock_movements').select('*').order('created_at',{ascending:false}).limit(300):Promise.resolve({data:[],error:null})],
+      ['orders',db.from('orders').select('*').order('created_at',{ascending:false}).limit(300)],
+      ['receipts',db.from('goods_receipts').select('*').order('receipt_date',{ascending:false}).limit(300)],
+      ['transfers',db.from('transfers').select('*').order('transfer_no',{ascending:false}).limit(300)],
+      ['transferLines',db.from('transfer_lines').select('*').limit(1000)],
+      ['trips',db.from('delivery_trips').select('*').order('planned_start',{ascending:false}).limit(300)],
+      ['deliveryDocs',db.from('delivery_documents').select('*').order('created_at',{ascending:false}).limit(300)]
+    ];
+    await runBatch(batch2);
+
+    const batch3=[
+      ['invoices',db.from('invoices').select('*').order('invoice_date',{ascending:false}).limit(300)],
+      ['costs',db.from('monthly_product_costs').select('*').order('cost_month',{ascending:false})],
+      ['expenseTypes',db.from('expense_types').select('*').order('code')],
+      ['expenseRates',db.from('expense_rates').select('*').order('effective_from',{ascending:false})],
+      ['actualExpenses',db.from('actual_expenses').select('*').limit(300)],
+      ['counts',db.from('stock_counts').select('*').order('snapshot_at',{ascending:false}).limit(300)],
+      ['countLines',db.from('stock_count_lines').select('*').limit(1000)],
+      ['periods',db.from('period_closes').select('*').order('period_month',{ascending:false})]
+    ];
+    await runBatch(batch3);
+
+    const batch4=[
+      ['settings',db.from('app_settings').select('*')],
+      ['openingBatches',can('ADMIN','OWNER')?db.from('opening_stock_batches').select('*').order('opening_date',{ascending:false}).limit(100):Promise.resolve({data:[],error:null})],
+      ['openingLines',can('ADMIN','OWNER')?db.from('opening_stock_lines').select('*').limit(1000):Promise.resolve({data:[],error:null})],
+      ['users',can('ADMIN')?db.rpc('admin_list_users'):Promise.resolve({data:[],error:null})],
+      ['audit',db.from('audit_logs').select('*').order('created_at',{ascending:false}).limit(200)],
+      ['tenants',state.isPlatformAdmin?db.rpc('platform_list_companies'):Promise.resolve({data:[],error:null})]
+    ];
+    await runBatch(batch4);
+
+    const reportP=reportParams();
+    const batch5=[
+      ['reportKpis',db.rpc('report_kpis',reportP)],
+      ['todayStatus',db.rpc('report_today_status')],
+      ['invoicePage',db.rpc('report_invoice_page',invoicePageParams())],
+      ['customerSummary',db.rpc('report_customer_summary',{p_year:reportP.p_year,p_month:reportP.p_month,p_warehouse_id:reportP.p_warehouse_id,p_product_id:reportP.p_product_id,p_vehicle_id:reportP.p_vehicle_id})],
+      ['monthlySummary',db.rpc('report_monthly_summary',{p_year:reportP.p_year,p_customer_id:reportP.p_customer_id,p_warehouse_id:reportP.p_warehouse_id,p_product_id:reportP.p_product_id,p_vehicle_id:reportP.p_vehicle_id})]
+    ];
+    await runBatch(batch5);
+
+    const related={
+      orderLines:['order_lines','order_id',(state.data.orders||[]).map(x=>x.id)],
+      tripLines:['delivery_trip_lines','trip_id',(state.data.trips||[]).map(x=>x.id)],
+      invoiceOrders:['invoice_orders','invoice_id',(state.data.invoices||[]).map(x=>x.id)],
+      invoiceTrips:['invoice_trips','invoice_id',(state.data.invoices||[]).map(x=>x.id)]
+    };
+    for(const [name,args] of Object.entries(related)){
+      const [tableName,key,idsRaw]=args,ids=idsRaw.filter(Boolean),rows=[],chunkSize=40;
+      for(let c=0;c<ids.length;c+=chunkSize){
+        const chunk=ids.slice(c,c+chunkSize);
+        for(let offset=0;;offset+=1000){
+          let q=db.from(tableName).select('*').in(key,chunk).order(key).order(tableName==='invoice_orders'?'order_id':tableName==='invoice_trips'?'trip_id':'id');
+          const {data,error}=await q.range(offset,offset+999);
+          if(error)throw error;
+          rows.push(...(data||[]));
+          if((data||[]).length<1000)break;
+        }
+      }
+      state.data[name]=rows;
+    }
+
+    state.data.reportKpisKey=reportKey();
+    state.data.invoicePageKey=invoicePageKey();
+    state.data.customerSummaryKey=reportKey();
+    state.data.monthlySummaryKey=reportKey();
+  }finally{
+    setLoading(false);
+  }
+}
 function render(){
   const pages={dashboard:dashboardPage,executive:dashboardPage,orders:ordersPage,warehouse:warehousePage,stock:stockPage,counts:countsPage,transfers:transfersPage,delivery:deliveryPage,profit:profitPage,customer360:customer360Page,stockhealth:stockHealthPage,deliveryperformance:deliveryPerformancePage,costvariance:costVariancePage,reports:reportsPage,customers:customersPage,masters:mastersPage,users:usersPage,settings:settingsPage,datamanagement:dataManagementPage,audit:auditPage,commercial:commercialPage,inactive:inactivePage};
   $('#page').innerHTML=(pages[state.page]||dashboardPage)();wireSort();wirePage();
