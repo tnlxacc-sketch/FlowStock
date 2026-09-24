@@ -54,7 +54,7 @@ async function init(){
   bindShell();
   const {data:{session}}=await db.auth.getSession();
   if(session)await startApp(session);else showLogin();
-  db.auth.onAuthStateChange(async(event,session)=>{if(event==='SIGNED_OUT')showLogin();if(event==='SIGNED_IN'&&session&&!state.session)await startApp(session);if(event==='PASSWORD_RECOVERY')passwordRecoveryModal()});
+  db.auth.onAuthStateChange(async(event,session)=>{try{if(event==='SIGNED_OUT')showLogin();if(event==='SIGNED_IN'&&session&&!state.session)await startApp(session);if(event==='PASSWORD_RECOVERY')passwordRecoveryModal()}catch(err){console.error('Auth state error',err);setLoading(false)}});
 }
 function bindShell(){
   $('#loginForm').addEventListener('submit',login);$('#logoutBtn').onclick=()=>db.auth.signOut();
@@ -69,12 +69,23 @@ function showLogin(){state.session=null;state.profile=null;state.company=null;st
 async function startApp(session){
   setLoading(true);state.session=session;
   const {data,error}=await db.rpc('get_my_context');
-  if(error){throw error}
+  if(error){setLoading(false);showLogin();$('#loginError').textContent='โหลดข้อมูลผู้ใช้งานไม่สำเร็จ กรุณาลองใหม่';throw error}
   if(!data||!data.active){await db.auth.signOut();showLogin();$('#loginError').textContent='บัญชีนี้ยังไม่ได้สร้างหรือถูกปิดใช้งาน กรุณาติดต่อ Admin บริษัท';return}
-  state.profile=data;state.company=data.company;state.isPlatformAdmin=Boolean(data.is_platform_admin);$('#companyName').textContent=data.company?.name||'FlowStock';$('#roleName').textContent=roleThai[data.app_role]||data.app_role;$('#sideUser').textContent=`${data.full_name} • ${data.employee_code||''}`;
-  if(data.must_change_password){$('#authView').classList.add('hidden');$('#shell').classList.remove('hidden');$('#nav').innerHTML='';$('#page').innerHTML=head('ตั้งรหัสผ่านใหม่','บัญชีนี้ใช้รหัสผ่านชั่วคราวและยังไม่เปิดให้เข้าถึงข้อมูลบริษัท')+'<div class="panel"><div class="alert warn">กรุณาตั้งรหัสผ่านใหม่ก่อนเริ่มใช้งาน FlowStock</div></div>';setLoading(false);forcePasswordChangeModal();return}
+  state.profile=data;state.company=data.company;state.isPlatformAdmin=Boolean(data.is_platform_admin);$('#companyName').textContent=data.company?.name||'FlowBiz One';$('#roleName').textContent=roleThai[data.app_role]||data.app_role;$('#sideUser').textContent=data.full_name+' • '+(data.employee_code||'');
+  if(data.must_change_password){$('#authView').classList.add('hidden');$('#shell').classList.remove('hidden');$('#nav').innerHTML='';$('#page').innerHTML=head('ตั้งรหัสผ่านใหม่','บัญชีนี้ใช้รหัสผ่านชั่วคราวและยังไม่เปิดให้เข้าถึงข้อมูลบริษัท')+'<div class="panel"><div class="alert warn">กรุณาตั้งรหัสผ่านใหม่ก่อนเริ่มใช้งาน FlowBiz One</div></div>';setLoading(false);forcePasswordChangeModal();return}
   if(!data.active||!data.company?.active||['SUSPENDED','EXPIRED'].includes(data.company?.subscription_status)||(data.company?.subscription_status==='TRIAL'&&data.company.trial_ends_at&&new Date(data.company.trial_ends_at)<=new Date())){state.page='inactive';renderNav();$('#authView').classList.add('hidden');$('#shell').classList.remove('hidden');setLoading(false);render();return}
-  renderNav();await loadData();$('#authView').classList.add('hidden');$('#shell').classList.remove('hidden');setLoading(false);render();
+  renderNav();$('#authView').classList.add('hidden');$('#shell').classList.remove('hidden');
+  $('#page').innerHTML='<div class="panel"><h3>กำลังเตรียมข้อมูลบริษัท…</h3><p class="muted">เข้าสู่ระบบสำเร็จแล้ว กำลังโหลด Dashboard และข้อมูลล่าสุด</p></div>';
+  setLoading(false);
+  try{
+    await loadData();
+    render();
+  }catch(err){
+    setLoading(false);
+    $('#page').innerHTML=head('โหลดข้อมูลไม่สำเร็จ','เข้าสู่ระบบสำเร็จแล้ว แต่มีบางรายการตอบสนองช้าหรือเกิดข้อผิดพลาด')+'<div class="panel"><div class="alert danger">กรุณากด “รีเฟรช” อีกครั้ง หากยังไม่สำเร็จให้ติดต่อ Admin</div><button class="btn primary" id="retryInitialLoad">ลองโหลดข้อมูลอีกครั้ง</button></div>';
+    const retry=$('#retryInitialLoad');if(retry)retry.onclick=async()=>{setLoading(true);try{await loadData();render()}catch(e){fail(e)}finally{setLoading(false)}};
+    console.error('Initial data load failed',err);
+  }
 }
 function renderNav(){const menus=state.page==='inactive'?[]:[...(roleMenus[state.profile.app_role]||roleMenus.SALES)];if(state.isPlatformAdmin)menus.push(['commercial','◆','Commercial Control']);$('#nav').innerHTML=menus.map(m=>`<button class="nav-btn ${state.page===m[0]?'active':''}" data-page="${m[0]}"><span class="nav-icon">${m[1]}</span>${m[2]}</button>`).join('');$$('.nav-btn').forEach(b=>b.onclick=()=>go(b.dataset.page))}
 function go(page){state.lowContributionDate=null;state.lowContributionPeriod=false;state.page=page;state.search='';state.reportPage=0;if(page!=='profit')state.reportCustomer='ALL';renderNav();$('#sidebar').classList.remove('open');render();if(page==='profit')refreshInvoicePage().catch(fail);if(page==='dashboard'||page==='executive')refreshTodayStatus().catch(fail)}
@@ -100,7 +111,18 @@ async function loadData(){
   const relatedEntries=Object.entries(related);
   const relatedResults=await Promise.all(relatedEntries.map(async([,args])=>{
     if(!args[2].length)return [];
-    const rows=[];for(let offset=0;;offset+=1000){let q=db.from(args[0]).select('*').in(args[1],args[2]).order(args[1]).order(args[0]==='invoice_orders'?'order_id':args[0]==='invoice_trips'?'trip_id':'id');const {data,error}=await q.range(offset,offset+999);if(error)throw error;rows.push(...(data||[]));if((data||[]).length<1000)break}return rows
+    const rows=[],ids=args[2].filter(Boolean),chunkSize=50;
+    for(let c=0;c<ids.length;c+=chunkSize){
+      const idChunk=ids.slice(c,c+chunkSize);
+      for(let offset=0;;offset+=1000){
+        let q=db.from(args[0]).select('*').in(args[1],idChunk).order(args[1]).order(args[0]==='invoice_orders'?'order_id':args[0]==='invoice_trips'?'trip_id':'id');
+        const {data,error}=await q.range(offset,offset+999);
+        if(error)throw error;
+        rows.push(...(data||[]));
+        if((data||[]).length<1000)break;
+      }
+    }
+    return rows
   }));
   relatedResults.forEach((rows,i)=>{state.data[relatedEntries[i][0]]=rows});
   state.data.reportKpisKey=reportKey();
