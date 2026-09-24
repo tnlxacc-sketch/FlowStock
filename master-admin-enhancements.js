@@ -3,7 +3,7 @@
   const MASTER_META={
     customers:{title:'Customer',fields:[['code','รหัส','text'],['name','ชื่อ','text'],['region','ภูมิภาค','text']]},
     productGroups:{title:'Product Group',fields:[['code','รหัสกลุ่ม','text'],['name','ชื่อกลุ่ม','text']]},
-    products:{title:'Product',fields:[['code','รหัสสินค้า','text'],['name','ชื่อสินค้า','text'],['base_uom','หน่วย','text']]},
+    products:{title:'Product',fields:[['code','รหัสสินค้า','text'],['name','ชื่อสินค้า','text'],['base_uom','หน่วย','text'],['minimum_stock','Minimum Stock','number']]},
     warehouses:{title:'Warehouse',fields:[['code','รหัส','text'],['name','ชื่อ','text']]},
     suppliers:{title:'Vendor / Supplier',fields:[['code','รหัส','text'],['name','ชื่อ','text'],['supplier_type','ประเภท','text']]},
     vehicleTypes:{title:'Vehicle Type',fields:[['code','รหัสประเภทรถ','text'],['name','ชื่อประเภทรถ','text']]},
@@ -39,7 +39,7 @@
     }
     if(type==='selectBasis')return `<label>${label}<select data-master-field="${field}" required>${basisOptions.map(([v,t])=>`<option value="${v}" ${String(value||'MANUAL')===v?'selected':''}>${t}</option>`).join('')}</select></label>`;
     if(type==='selectExpenseCategory')return `<label>${label}<select data-master-field="${field}" required>${categoryOptions.map(([v,t])=>`<option value="${v}" ${String(value||'DIRECT_EXPENSE')===v?'selected':''}>${t}</option>`).join('')}</select></label>`;
-    return `<label>${label}<input data-master-field="${field}" value="${escapeAttr(value)}" ${field==='code'?'style="text-transform:uppercase"':''} required></label>`;
+    return `<label>${label}<input data-master-field="${field}" type="${type==='number'?'number':'text'}" ${type==='number'?'min="0" step="0.001"':''} value="${escapeAttr(value)}" ${field==='code'?'style="text-transform:uppercase"':''} required></label>`;
   }
   function masterFormHtml(kind,row=null){
     const meta=MASTER_META[kind], disabled=kind==='vehicles'&&!(state.data.vehicleTypes||[]).length, title=row?`แก้ไข ${meta.title}`:`เพิ่ม ${meta.title}`;
@@ -65,7 +65,7 @@
     const form=by('#masterForm'); if(!form)return;
     form.onsubmit=async e=>{
       e.preventDefault(); const kind=form.dataset.kind,id=form.dataset.id||null,meta=MASTER_META[kind],payload={};
-      all('#masterForm [data-master-field]').forEach(x=>payload[x.dataset.masterField]=x.value.trim());
+      all('#masterForm [data-master-field]').forEach(x=>payload[x.dataset.masterField]=x.value.trim());\n      if(kind==='products'){const min=Number(payload.minimum_stock||0);if(!Number.isFinite(min)||min<0)return toast('Minimum Stock ต้องเป็น 0 หรือมากกว่า',true);payload.minimum_stock=min;}
       payload.active=String(payload.active)!=='false'; payload.code=normalizeCode(payload.code);
       if(!payload.code||(!payload.name&&kind!=='vehicles'))return toast('กรอกข้อมูลให้ครบ',true);
       const dup=masterList(kind).find(x=>String(x.code||'').toUpperCase()===payload.code&&String(x.id)!==String(id||''));
