@@ -68,3 +68,12 @@ This build is approved for a controlled first-customer paid pilot and UAT. It mu
 - Stock screen includes a one-click **Stock below Min** filter.
 - Top Customer and Top Product Group panels show Sales and Contribution %.
 - Calculation rules for Sales, GP and Contribution are unchanged.
+
+
+## v1.14.6 safe executive/minimum stock release
+
+- Executive Dashboard combines Sales and Contribution Profit into one chart using the existing calculation logic.
+- Top Customer and Top Product Group show Sales and Contribution %.
+- Product Master includes Minimum Stock.
+- Executive alerts and Stock screen can drill/filter products below Minimum Stock.
+- Minimum Stock is alert/filter only and does not change stock posting, allocation, issue, receipt, transfer, or count adjustment rules.
