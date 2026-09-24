@@ -70,3 +70,19 @@ Record tester, date, company, role, expected result, actual result, and evidence
 8. Confirm Stock checkbox `แสดงเฉพาะ Stock ต่ำกว่า Min` can be turned on/off.
 9. Confirm Minimum Stock does not reserve stock or change stock posting.
 10. Confirm products with Minimum Stock = 0 are excluded from low-stock alerting.
+
+
+## v1.14.9 Stock UI / Control Wiring UAT
+
+1. Open Stock as ADMIN and confirm current Stock Balance rows appear.
+2. Confirm Product / Warehouse search filters Stock Balance.
+3. Tick `แสดงเฉพาะ Stock ต่ำกว่า Min` and confirm only products below Product Minimum Stock remain.
+4. Untick the checkbox and confirm all Stock Balance rows return.
+5. Confirm Stock Movement filters work: Warehouse, Product, Type, From Date, To Date.
+6. Confirm `ล้างตัวกรอง` resets Warehouse / Product / Type / Date / Search / Low-Min filters.
+7. Confirm Stock Movement shows In, Out, and `คงเหลือ` after each movement.
+8. Confirm movement Balance After matches current Stock Balance rolled backward by later movements.
+9. Confirm Export Movement contains In, Out, Balance After.
+10. Confirm Export Stock contains Minimum Stock and low-stock status.
+11. Confirm Download Stock / Export Movement / Send Report buttons are wired.
+12. Static wiring audit: every `data-action` has a handler; every report/movement/search filter id has an event binding; all page functions referenced by navigation exist.
