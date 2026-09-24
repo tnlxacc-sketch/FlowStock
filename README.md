@@ -1,9 +1,9 @@
-# FlowStock
+# FlowBiz One
 
-Sales • Stock • Delivery • Profit
+Sales • Inventory • Delivery • Profit
 
 Commercial multi-tenant web application for Sales, Warehouse, Logistics, Owner,
-Admin, and the FlowStock platform administrator. The frontend is deployed with
+Admin, and the FlowBiz platform administrator. The frontend is deployed with
 GitHub Pages and connects to Supabase through a publishable key. No service-role
 secret is stored in this repository.
 
@@ -13,7 +13,7 @@ secret is stored in this repository.
 2. Warehouse posts receipts, issues available stock, and manages transfers.
 3. Logistics assigns a vehicle, records POD/customer-received quantity, and
    closes the delivery.
-4. FlowStock creates the invoice profitability record from received quantity,
+4. FlowBiz One creates the invoice profitability record from received quantity,
    monthly product cost, actual freight, and other expenses.
 5. Owner/Admin monitors live sales, stock, delivery, GP, and audit data.
 
@@ -25,7 +25,9 @@ role checks, request idempotency, and audit logging.
 - Company data is isolated by tenant-aware RLS.
 - Platform Admin can create tenants and control plan, user limit, and status.
 - Platform Admin creates the first Company Admin; Company Admin creates all other accounts.
-- Self-service access requests and activation codes are disabled for signed-in users.
+- Self-service signup is disabled; Company Admin creates users.
+- Company Admin can manage master data from the screen: add, edit, activate/deactivate, controlled delete, import/export, and template download.
+- Master delete is controlled: if a master has already been used in transactions, the system deactivates it instead of deleting it to protect history and reports.
 - POD files use a private Storage bucket with tenant-scoped policies and a 10 MB limit.
 - Suspended or expired tenants cannot read operational data or post transactions.
 - CSV exports and print-to-PDF are available for operational reporting.
@@ -46,13 +48,13 @@ CSV downloads are partial. The current build has not been benchmarked with
 
 Operational handoff: [`docs/COMMERCIAL_RUNBOOK.md`](docs/COMMERCIAL_RUNBOOK.md)
 UAT checklist: [`docs/UAT_CHECKLIST.md`](docs/UAT_CHECKLIST.md)
+Master data admin guide: [`docs/MASTER_DATA_ADMIN.md`](docs/MASTER_DATA_ADMIN.md)
 Year-end runbook: [`docs/YEAR_END.md`](docs/YEAR_END.md)
 
 Live site: https://tnlxacc-sketch.github.io/FlowStock/
 
-
 ## Commercial release status
 
-Commercial baseline: **v1.13.4 — COMMERCIAL PILOT READY**
+Commercial baseline: **v1.14.2 — COMMERCIAL PILOT READY + Managed Master Data**
 
-This build is approved for a controlled first-customer paid pilot and UAT. It must not be marketed as proven for 500,000 annual sales records until the benchmark is completed. See [Commercial Closeout](docs/COMMERCIAL_RELEASE_1_13_4.md).
+This build is approved for a controlled first-customer paid pilot and UAT. It must not be marketed as proven for 500,000 annual sales records until the benchmark is completed. See [Commercial Closeout](docs/COMMERCIAL_RELEASE_1_14_2.md).
