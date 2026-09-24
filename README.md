@@ -58,3 +58,13 @@ Live site: https://tnlxacc-sketch.github.io/FlowStock/
 Commercial baseline: **v1.14.2 — COMMERCIAL PILOT READY + Managed Master Data**
 
 This build is approved for a controlled first-customer paid pilot and UAT. It must not be marketed as proven for 500,000 annual sales records until the benchmark is completed. See [Commercial Closeout](docs/COMMERCIAL_RELEASE_1_14_2.md).
+
+
+## v1.14.3 additions
+
+- Product Master includes company-wide **Minimum Stock**.
+- Executive Dashboard combines Sales and Contribution Profit into one chart.
+- Executive attention panel includes drill-down for Stock below Minimum.
+- Stock screen includes a one-click **Stock below Min** filter.
+- Top Customer and Top Product Group panels show Sales and Contribution %.
+- Calculation rules for Sales, GP and Contribution are unchanged.
