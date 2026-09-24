@@ -184,3 +184,34 @@ linear-gradient(135deg,#f8fbfd 0%,#eef6f6 52%,#f8fafc 100%)}
 @media(max-width:520px){
   .executive-kpis .cards,.profit-kpis .cards,.delivery-kpis .cards{grid-template-columns:1fr}
 }
+
+
+/* =========================================================
+   FlowBiz One Executive MinStock Safe UI
+   UI only. No Sales/GP/Contribution/Stock posting formula changes.
+   ========================================================= */
+.executive-primary-grid{display:grid;grid-template-columns:minmax(0,1.75fr) minmax(320px,.75fr);gap:16px;align-items:stretch;margin-bottom:16px}
+.executive-combined-chart{margin:0;min-height:390px}
+.combo-head{align-items:flex-start;gap:16px}.combo-summary{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+.combo-summary span{min-width:108px;padding:9px 11px;border:1px solid #e2e9ef;border-radius:11px;background:#f8fbfd}
+.combo-summary small{display:block;font-size:10px;color:#74849a}.combo-summary b{display:block;margin-top:2px;font-size:16px;color:#173857}
+.combo-svg-wrap{width:100%;overflow:hidden}.combo-svg-wrap svg{display:block;width:100%;min-height:260px}
+.combo-grid{stroke:#dfe7ee;stroke-width:1;stroke-dasharray:3 4}.combo-axis,.combo-month{fill:#687b93;font-size:10px}
+.combo-sales-bar{fill:#347bd4;filter:drop-shadow(0 4px 8px rgba(40,105,200,.12))}
+.combo-profit-line{fill:none;stroke:#0c9d8d;stroke-width:4;stroke-linejoin:round;stroke-linecap:round;filter:drop-shadow(0 5px 7px rgba(12,157,141,.15))}
+.combo-profit-dot{fill:#fff;stroke:#0c9d8d;stroke-width:3}
+.executive-attention{margin:0;display:flex;flex-direction:column}.executive-attention .analytics-alert{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:13px;border:1px solid #e4eaf0;border-radius:12px;background:#fff;margin:7px 0}
+.executive-attention .analytics-alert div{min-width:0}.executive-attention .analytics-alert strong{display:block;font-size:13px;color:#19344f}.executive-attention .analytics-alert small{display:block;margin-top:4px;color:#7c8999}
+.executive-attention .critical{background:#fff7f6;border-color:#f0d0cc}.executive-attention .critical strong{color:#a22f26}
+.executive-attention .stock-alert{background:#faf8ff;border-color:#e3dcf8}.executive-attention .stock-alert strong{color:#6342a5}
+.executive-ranking-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px}
+.executive-rank-table{display:grid}.rank-head,.rank-row{display:grid;grid-template-columns:54px minmax(160px,1fr) 132px 90px;align-items:center;gap:10px}
+.rank-head{padding:8px 10px;color:#7a8799;font-size:11px;font-weight:800;border-bottom:1px solid #e5ebf0}.rank-row{padding:11px 10px;border-bottom:1px solid #eef2f5}.rank-row:last-child{border-bottom:0}
+.rank-no{width:28px;height:28px;border-radius:50%;display:grid;place-items:center;background:#edf3f8;color:#34506d;font-weight:800}.rank-row:nth-child(2) .rank-no{background:#fff1c9;color:#986300}
+.rank-name{font-weight:750;color:#203c58;min-width:0}.rank-name i{display:block;height:5px;background:#edf2f6;border-radius:999px;margin-top:7px;overflow:hidden}.rank-name em{display:block;height:100%;background:linear-gradient(90deg,#7fb7f1,#2e74cf);border-radius:999px}
+.rank-sales{text-align:right;font-weight:750;color:#243f5d}.rank-profit{text-align:center;padding:5px 8px;border-radius:999px;background:#e6f7f1;color:#0b7b67;font-weight:850}.rank-profit.low{background:#fff0ee;color:#b22c23}
+.stock-min-filter{display:flex!important;align-items:center!important;gap:8px!important;white-space:nowrap;padding:9px 12px!important;margin:0!important;border:1px solid #d8e3ea!important;border-radius:10px!important;background:#fff!important;color:#29425e!important;font-weight:750!important}
+.stock-min-filter input{width:17px!important;height:17px!important;min-height:0!important;margin:0!important;accent-color:#0f8f83!important}
+.stock-low-row td{background:#fff9f8!important}.stock-low-row td:first-child{box-shadow:inset 3px 0 0 #cf463c}
+@media(max-width:1180px){.executive-primary-grid,.executive-ranking-grid{grid-template-columns:1fr}}
+@media(max-width:760px){.combo-head{display:block}.combo-summary{justify-content:flex-start;margin-top:10px}.combo-svg-wrap{overflow-x:auto}.combo-svg-wrap svg{min-width:700px}.rank-head,.rank-row{grid-template-columns:42px minmax(140px,1fr) 105px 80px}.stock-min-filter{width:100%}}
