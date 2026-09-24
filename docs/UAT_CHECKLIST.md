@@ -44,3 +44,15 @@ Record tester, date, company, role, expected result, actual result, and evidence
 - Sorting preserves the visible data and works for text, date, and numeric columns.
 - Admin can reset a user's temporary password; the first login requires a new password.
 - Refresh and sign-out do not leave stale company data visible.
+
+
+## Minimum Stock UAT
+
+1. Edit Product Master and set Minimum Stock > 0.
+2. Confirm Product Master retains the value after refresh.
+3. Confirm Executive Dashboard shows `Stock ต่ำกว่า Minimum`.
+4. Click the alert and confirm it opens Stock with the low-stock filter enabled.
+5. Confirm only products whose total On Hand is below Product Minimum Stock are shown.
+6. Untick the filter and confirm all stock rows return.
+7. Set Minimum Stock to 0 and confirm the product is excluded from low-stock alerting.
+8. Confirm Sales, GP, Contribution, Stock posting, receipt, issue, transfer, and stock-count calculations remain unchanged.
