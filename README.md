@@ -49,3 +49,10 @@ UAT checklist: [`docs/UAT_CHECKLIST.md`](docs/UAT_CHECKLIST.md)
 Year-end runbook: [`docs/YEAR_END.md`](docs/YEAR_END.md)
 
 Live site: https://tnlxacc-sketch.github.io/FlowStock/
+
+
+## Commercial release status
+
+Commercial baseline: **v1.13.4 — COMMERCIAL PILOT READY**
+
+This build is approved for a controlled first-customer paid pilot and UAT. It must not be marketed as proven for 500,000 annual sales records until the benchmark is completed. See [Commercial Closeout](docs/COMMERCIAL_RELEASE_1_13_4.md).
