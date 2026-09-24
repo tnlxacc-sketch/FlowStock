@@ -215,3 +215,25 @@ linear-gradient(135deg,#f8fbfd 0%,#eef6f6 52%,#f8fafc 100%)}
 .stock-low-row td{background:#fff9f8!important}.stock-low-row td:first-child{box-shadow:inset 3px 0 0 #cf463c}
 @media(max-width:1180px){.executive-primary-grid,.executive-ranking-grid{grid-template-columns:1fr}}
 @media(max-width:760px){.combo-head{display:block}.combo-summary{justify-content:flex-start;margin-top:10px}.combo-svg-wrap{overflow-x:auto}.combo-svg-wrap svg{min-width:700px}.rank-head,.rank-row{grid-template-columns:42px minmax(140px,1fr) 105px 80px}.stock-min-filter{width:100%}}
+
+
+/* =========================================================
+   FlowBiz One Searchable Dropdowns v1.15.1
+   Search UX only. Native select remains the source of truth.
+   ========================================================= */
+.searchable-select{position:relative;width:100%;min-width:0}
+.searchable-native-select{position:absolute!important;left:-9999px!important;width:1px!important;height:1px!important;opacity:0!important;pointer-events:none!important}
+.searchable-select-input{width:100%;min-width:0;box-sizing:border-box;padding-right:38px!important;background:#fff!important;cursor:text!important}
+.searchable-select:after{content:'⌄';position:absolute;right:13px;top:50%;transform:translateY(-50%);font-size:16px;color:#6f8094;pointer-events:none}
+.searchable-select-list{position:absolute;z-index:5000;left:0;right:0;top:calc(100% + 5px);max-height:290px;overflow:auto;background:#fff;border:1px solid #d9e3eb;border-radius:12px;box-shadow:0 16px 34px rgba(22,42,66,.16);padding:6px}
+.searchable-select-list.hidden{display:none!important}
+.searchable-select-option{display:block;width:100%;border:0;background:#fff;text-align:left;padding:10px 11px;border-radius:8px;color:#183652;font:inherit;line-height:1.35;cursor:pointer}
+.searchable-select-option:hover,.searchable-select-option.active{background:#eef8f7;color:#08796f}
+.searchable-select-option.selected{font-weight:800;background:#f5f8fb}
+.searchable-select-empty,.searchable-select-more{padding:11px;color:#7b8898;font-size:12px;text-align:center}
+.searchable-select-more{border-top:1px solid #edf1f4;margin-top:5px}
+.modal .searchable-select-list,#modal .searchable-select-list{z-index:10050}
+@media(max-width:760px){
+  .searchable-select-list{max-height:240px}
+  .searchable-select-option{padding:12px 10px}
+}
