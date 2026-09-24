@@ -56,3 +56,17 @@ Record tester, date, company, role, expected result, actual result, and evidence
 6. Untick the filter and confirm all stock rows return.
 7. Set Minimum Stock to 0 and confirm the product is excluded from low-stock alerting.
 8. Confirm Sales, GP, Contribution, Stock posting, receipt, issue, transfer, and stock-count calculations remain unchanged.
+
+
+## v1.14.6 Safe Executive / Minimum Stock UAT
+
+1. Login and confirm Dashboard, Orders, Warehouse, Stock, Delivery, Sales & Profit, Reports, Master Data, Users, Settings and Audit all open without JavaScript error.
+2. Confirm Sales, Product Cost, Gross Profit, GP Margin, Contribution Profit and Contribution % match the pre-change baseline for the same filters.
+3. Confirm Executive Dashboard shows one combined Sales + Contribution Profit chart.
+4. Confirm Top Customer shows Sales and Contribution %.
+5. Confirm Top Product Group shows Sales and Contribution %.
+6. Edit Product Master and set Minimum Stock to a value >= 0; refresh and confirm it persists.
+7. Confirm Executive alert `Stock ต่ำกว่า Minimum` opens Stock with the low-stock filter enabled.
+8. Confirm Stock checkbox `แสดงเฉพาะ Stock ต่ำกว่า Min` can be turned on/off.
+9. Confirm Minimum Stock does not reserve stock or change stock posting.
+10. Confirm products with Minimum Stock = 0 are excluded from low-stock alerting.
