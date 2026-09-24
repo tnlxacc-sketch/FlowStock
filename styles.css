@@ -109,3 +109,78 @@ linear-gradient(135deg,#f8fbfd 0%,#eef6f6 52%,#f8fafc 100%)}
 /* Responsive premium */
 @media(max-width:1100px){.premium-auth{grid-template-columns:1fr}.auth-hero{display:none}.auth-panel{min-height:100vh}.app-body{grid-template-columns:210px minmax(0,1fr)}.topbar .brand{min-width:190px}}
 @media(max-width:800px){.app-body{display:block}.sidebar{top:72px;height:calc(100vh - 72px)}.page{padding:16px}.page-head h1{font-size:25px}.premium-login{padding:28px 22px}.auth-panel{padding:18px}.topbar{height:64px}.sidebar{top:64px;height:calc(100vh - 64px)}}
+
+
+/* =========================================================
+   FlowBiz One Executive UI Phase 2
+   Presentation only — formulas, permissions and workflow unchanged.
+   ========================================================= */
+.premium-page .page-head{padding:2px 0 4px}
+.premium-page .page-head h1{font-size:30px}
+.premium-page .cards{grid-template-columns:repeat(auto-fit,minmax(170px,1fr))}
+.premium-page .card{position:relative;overflow:hidden}
+.premium-page .card:before{content:'';position:absolute;inset:0 auto 0 0;width:3px;background:linear-gradient(180deg,#19aa99,#2d74c8);opacity:.8}
+.premium-page .card .value{font-size:28px}
+.premium-kpi-zone .cards,.executive-kpis .cards,.profit-kpis .cards,.delivery-kpis .cards{gap:14px}
+.premium-kpi-zone .card,.executive-kpis .card,.profit-kpis .card,.delivery-kpis .card{min-height:116px;padding:18px 18px 16px}
+.executive-kpis .cards,.profit-kpis .cards,.delivery-kpis .cards{grid-template-columns:repeat(6,minmax(0,1fr))}
+.executive-kpis .card:nth-child(1),.profit-kpis .card:nth-child(1),.delivery-kpis .card:nth-child(1){background:linear-gradient(145deg,#f5fbfa,#fff)}
+.executive-kpis .card:nth-child(2),.profit-kpis .card:nth-child(2),.delivery-kpis .card:nth-child(2){background:linear-gradient(145deg,#f7f8ff,#fff)}
+.executive-kpis .card:nth-child(3),.profit-kpis .card:nth-child(3),.delivery-kpis .card:nth-child(3){background:linear-gradient(145deg,#f4f8ff,#fff)}
+.executive-kpis .card:nth-child(4),.profit-kpis .card:nth-child(4),.delivery-kpis .card:nth-child(4){background:linear-gradient(145deg,#f3fbf8,#fff)}
+.executive-kpis .card:nth-child(5),.profit-kpis .card:nth-child(5),.delivery-kpis .card:nth-child(5){background:linear-gradient(145deg,#fbf7ff,#fff)}
+.executive-kpis .card:nth-child(6),.profit-kpis .card:nth-child(6),.delivery-kpis .card:nth-child(6){background:linear-gradient(145deg,#f5f9ff,#fff)}
+
+.executive-trend-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:2px 0 16px}
+.premium-chart-panel{min-height:330px;overflow:hidden}
+.premium-bars{height:230px;display:flex;align-items:flex-end;gap:8px;padding:12px 6px 0}
+.premium-bar-col{flex:1;min-width:24px;height:100%;display:flex;flex-direction:column;justify-content:flex-end;text-align:center;gap:5px}
+.premium-bar-value{font-size:9px;color:#6e7d91;min-height:14px;white-space:nowrap}
+.premium-bar-track{height:168px;background:linear-gradient(180deg,#f1f5f8,#f8fafb);border-radius:8px 8px 4px 4px;display:flex;align-items:flex-end;overflow:hidden;position:relative}
+.premium-bar-track span{display:block;width:100%;background:linear-gradient(180deg,#66a8ef,#2869c8);border-radius:8px 8px 3px 3px;min-height:3px;box-shadow:0 -5px 18px rgba(40,105,200,.12)}
+.premium-bar-col small{font-size:10px;color:#738297}
+.trend-svg-wrap{height:235px;padding:4px 2px 0}.trend-svg-wrap svg{width:100%;height:195px;overflow:visible}
+.trend-axis{stroke:#dfe7ee;stroke-width:1}.trend-line{fill:none;stroke:#14a08f;stroke-width:4;stroke-linejoin:round;stroke-linecap:round;filter:drop-shadow(0 5px 7px rgba(20,160,143,.16))}
+.trend-dot{fill:#fff;stroke:#14a08f;stroke-width:3}.trend-labels{display:grid;grid-template-columns:repeat(12,1fr);gap:0;padding:0 7px}.trend-labels span{font-size:10px;text-align:center;color:#738297}
+.executive-bottom-grid{display:grid;grid-template-columns:1.1fr .9fr;gap:16px}
+.executive-attention .analytics-alert,.delivery-attention .analytics-alert{padding:14px;border:1px solid #e5ebf0;border-radius:12px;background:linear-gradient(90deg,#fff,#fbfcfd);margin:9px 0}
+.executive-attention .analytics-alert:first-of-type{border-color:#f3d2cf;background:linear-gradient(90deg,#fff7f6,#fff)}
+.executive-product-panel{margin-top:16px}
+
+.admin-secondary-grid{display:grid;grid-template-columns:.9fr 1.1fr;gap:16px}
+.quick-action-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.quick-action{border:1px solid #dfe7ee;border-radius:13px;background:#fff;padding:15px;text-align:left;color:#19344f;cursor:pointer;transition:.16s}
+.quick-action:hover{transform:translateY(-2px);border-color:#a9d6d0;box-shadow:0 9px 24px rgba(16,33,61,.08);background:#f8fcfb}
+.quick-action b{display:block;font-size:14px;color:#0f6f68}.quick-action span{display:block;font-size:11px;line-height:1.45;color:#748195;margin-top:5px}
+
+.premium-report-search{background:#fff;border:1px solid #e2e9ef;border-radius:14px;padding:10px 12px;box-shadow:0 4px 16px rgba(16,33,61,.035)}
+.premium-report-search input{border:0!important;box-shadow:none!important;min-width:min(100%,560px)}
+.profit-attention-card{display:flex;align-items:center;justify-content:space-between;gap:18px;border:1px solid #f1cbc8;border-radius:15px;background:linear-gradient(90deg,#fff7f6,#fff);padding:15px 16px;margin-bottom:16px;box-shadow:0 6px 18px rgba(180,35,24,.035)}
+.profit-attention-card>div{display:flex;align-items:center;gap:12px}.profit-attention-card b{display:block;font-size:15px;color:#7f2720}.profit-attention-card small{display:block;margin-top:3px;color:#7e6a68}.profit-alert-icon{width:34px;height:34px;border-radius:10px;display:grid;place-items:center;background:#fee5e2;color:#b42318;font-weight:900;font-size:18px}
+.profit-detail-panel .section-title{align-items:flex-start}
+.profit-invoice-table tbody tr:has(.negative) td{background:#fff8f7}
+.profit-invoice-table tbody tr:has(.negative):hover td{background:#fff2f0}
+.profit-invoice-table tbody tr:has(.negative) td:first-child{box-shadow:inset 3px 0 0 #d54a40}
+
+.delivery-overview-grid{display:grid;grid-template-columns:1.45fr .55fr;gap:16px}
+.delivery-detail-premium .table-wrap{border-radius:14px}
+.delivery-detail-premium tbody tr:hover td{background:#f4faf9}
+
+@media(max-width:1280px){
+  .executive-kpis .cards,.profit-kpis .cards,.delivery-kpis .cards{grid-template-columns:repeat(3,1fr)}
+}
+@media(max-width:1000px){
+  .executive-trend-grid,.executive-bottom-grid,.admin-secondary-grid,.delivery-overview-grid{grid-template-columns:1fr}
+  .quick-action-grid{grid-template-columns:1fr 1fr}
+}
+@media(max-width:760px){
+  .executive-kpis .cards,.profit-kpis .cards,.delivery-kpis .cards{grid-template-columns:1fr 1fr}
+  .premium-chart-panel{min-height:300px}
+  .premium-bars{overflow-x:auto;min-width:680px}
+  .trend-svg-wrap{overflow-x:auto}.trend-svg-wrap svg,.trend-labels{min-width:680px}
+  .profit-attention-card{align-items:flex-start;flex-direction:column}
+  .quick-action-grid{grid-template-columns:1fr}
+}
+@media(max-width:520px){
+  .executive-kpis .cards,.profit-kpis .cards,.delivery-kpis .cards{grid-template-columns:1fr}
+}
