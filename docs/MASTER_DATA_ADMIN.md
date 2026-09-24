@@ -108,3 +108,16 @@ Regression test required:
 2. Delete it and confirm physical delete succeeds.
 3. Attempt to delete a Warehouse already referenced by transactions and confirm it becomes inactive instead.
 4. Check Audit Log for the acting user.
+
+
+## Product Minimum Stock
+
+Product Master includes **Minimum Stock** as a non-negative numeric threshold.
+
+Rules:
+- Minimum Stock is maintained by Company Admin in Product Master.
+- Value 0 means no minimum threshold is configured.
+- Low-stock status compares total current On Hand for the product across company warehouses against Product Minimum Stock.
+- Executive Dashboard shows the number of products below Minimum and can drill directly to Stock.
+- Stock menu includes a checkbox **แสดงเฉพาะ Stock ต่ำกว่า Min**.
+- This addition does not change stock posting, allocation, issue, receipt, transfer, or stock-count calculation rules.
