@@ -225,7 +225,7 @@ function wirePage(){
   $$('[data-action]').forEach(b=>b.onclick=()=>{const action=actions[b.dataset.action];if(!action)return toast(`ปุ่ม ${b.dataset.action} ยังไม่พร้อมใช้งาน`,true);action(b.dataset.id)});
   $$('[data-go]').forEach(b=>b.onclick=()=>go(b.dataset.go));
   $$('[data-profit-view]').forEach(b=>b.onclick=()=>{state.profitView=b.dataset.profitView;render()});
-  $('[data-stock-view]').forEach(b=>b.onclick=()=>{state.stockView=b.dataset.stockView;if(state.stockView==='TOTAL')state.reportWarehouse='ALL';render()});
+  $$('[data-stock-view]').forEach(b=>b.onclick=()=>{state.stockView=b.dataset.stockView;if(state.stockView==='TOTAL')state.reportWarehouse='ALL';render()});
   const minFilter=$('#stockBelowMin');if(minFilter){minFilter.checked=Boolean(state.stockBelowMin);minFilter.onchange=()=>{state.stockBelowMin=minFilter.checked;render()}}
   const search=$('#pageSearch');if(search){search.value=state.search;search.oninput=()=>{state.search=search.value.toLowerCase();if(state.page==='profit'){state.reportPage=0;clearTimeout(state.searchTimer);state.searchTimer=setTimeout(()=>refreshInvoicePage().catch(fail),350)}else render()}}
   const updateReport=()=>{state.reportPage=0;render();refreshReportData().catch(fail)};
