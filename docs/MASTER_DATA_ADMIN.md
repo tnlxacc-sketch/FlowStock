@@ -87,3 +87,24 @@ Use **Import** for initial setup or large bulk changes.
 ## Commercial note
 
 This feature is required for commercial readiness. A paid customer should be able to maintain master data without depending on technical support or file uploads for every change.
+
+
+## Hotfix 2026-09-24 19:50
+
+Production UAT found an error when deleting a managed master:
+
+`record "ctx" has no field "user_id"`
+
+Root cause: `private.require_role()` returns `company_id` and `app_role`, but the new master audit RPC attempted to read `ctx.user_id`.
+
+Fix applied:
+- Master create/update/delete/deactivate audit actor now uses authenticated `auth.uid()`.
+- Product Group now has an `active` flag so it follows the same activate/deactivate/controlled-delete rule as other masters.
+- Database validation confirmed both master RPCs use `auth.uid()`.
+- Database validation confirmed Product Group status control is available.
+
+Regression test required:
+1. Create an unused Warehouse.
+2. Delete it and confirm physical delete succeeds.
+3. Attempt to delete a Warehouse already referenced by transactions and confirm it becomes inactive instead.
+4. Check Audit Log for the acting user.
