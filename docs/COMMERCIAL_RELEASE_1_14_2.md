@@ -70,3 +70,11 @@ The first customer UAT must include:
 ## Release baseline
 
 Commercial baseline: **v1.14.2 - COMMERCIAL PILOT READY + Managed Master Data**
+
+
+### Production hotfix
+
+A managed-master UAT defect was fixed on 2026-09-24:
+- Fixed audit actor lookup in `admin_upsert_master` and `admin_delete_master`.
+- Added/confirmed Product Group soft-delete status support.
+- No Sales, Stock, Delivery, Profit, or workflow calculation logic was changed.
