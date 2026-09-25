@@ -115,3 +115,9 @@ const minimumIndexSql=fs.readFileSync(new URL('../supabase/migrations/2026092518
 assert(minimumIndexSql.includes('idx_product_warehouse_minimums_product_id'),'Product FK index missing');
 assert(minimumIndexSql.includes('idx_product_warehouse_minimums_warehouse_id'),'Warehouse FK index missing');
 assert(minimumIndexSql.includes('idx_product_warehouse_minimums_updated_by'),'Updated-by FK index missing');
+
+assert(app.includes('FlowBiz_One_Minimum_Stock_By_Warehouse.csv'),'Warehouse Minimum template download missing');
+assert(app.includes('อัปโหลดทับค่ารายคลัง'),'Warehouse Minimum replace upload action missing');
+assert(app.includes('normalizeWarehouseMinimumImport'),'Warehouse Minimum CSV validation missing');
+assert(app.includes("accept=\".csv,text/csv\""),'Warehouse Minimum upload must accept CSV');
+assert(app.includes('ค่า Default ใน Product Master จะไม่ถูกแก้'),'Replace upload must preserve Product default guidance');
