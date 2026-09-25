@@ -142,7 +142,8 @@ function helpKey(){return 'flowbiz-help-v1:'+String(state.company?.id||state.com
 function currentHelp(){return PAGE_HELP[state.page]||{title:'วิธีใช้ FlowBiz One',steps:['เลือกเมนูจากด้านซ้าย','กรอกข้อมูลตามลำดับงาน','หากติดเงื่อนไข ระบบจะแจ้งสิ่งที่ต้องทำต่อ']}}
 function showPageHelp(){
   const h=currentHelp();
-  modal('<div class="help-modal"><div class="help-modal-head"><div><small>FLOWBIZ ONE QUICK GUIDE</small><h2>'+esc(h.title)+'</h2></div></div><div class="help-steps">'+h.steps.map((x,i)=>'<div class="help-step"><b>'+(i+1)+'</b><span>'+esc(x)+'</span></div>').join('')+'</div><div class="actions"><button class="btn" data-action="trialGuide">Trial Guide 10 นาที</button><button class="btn primary" type="button" id="closeHelpGuide">เข้าใจแล้ว</button></div></div>');
+  modal('<div class="help-modal"><div class="help-modal-head"><div><small>FLOWBIZ ONE QUICK GUIDE</small><h2>'+esc(h.title)+'</h2></div></div><div class="help-steps">'+h.steps.map((x,i)=>'<div class="help-step"><b>'+(i+1)+'</b><span>'+esc(x)+'</span></div>').join('')+'</div><div class="actions"><button class="btn" id="openTrialGuideFromHelp" type="button">Trial Guide 10 นาที</button><button class="btn primary" type="button" id="closeHelpGuide">เข้าใจแล้ว</button></div></div>');
+  const t=$('#openTrialGuideFromHelp');if(t)t.onclick=showTrialGuide;
   const c=$('#closeHelpGuide');if(c)c.onclick=closeModal;
 }
 function showTrialGuide(){
@@ -153,9 +154,10 @@ function showWelcomeGuideIfNeeded(){
   try{if(localStorage.getItem(helpKey())==='done')return}catch(e){}
   const role=state.profile?.app_role||'USER';
   const roleText=role==='SALES'?'Sales':role==='WAREHOUSE'?'Warehouse':role==='LOGISTICS'?'Logistics':role==='OWNER'?'Owner / Management':role==='ADMIN'?'Admin':'User';
-  modal('<div class="help-modal welcome-guide"><div class="help-modal-head"><div><small>WELCOME TO FLOWBIZ ONE</small><h2>เริ่มใช้งานใน 5 นาที</h2><p>คู่มือสั้นสำหรับ '+esc(roleText)+'</p></div></div><div class="help-steps">'+(PAGE_HELP[state.page]||PAGE_HELP.dashboard).steps.slice(0,4).map((x,i)=>'<div class="help-step"><b>'+(i+1)+'</b><span>'+esc(x)+'</span></div>').join('')+'</div><div class="actions"><button class="btn" id="welcomeDontShow" type="button">ไม่แสดงอีก</button><button class="btn" data-action="trialGuide" type="button">Trial Guide 10 นาที</button><button class="btn primary" id="welcomeStart" type="button">เริ่มใช้งาน</button></div></div>');
+  modal('<div class="help-modal welcome-guide"><div class="help-modal-head"><div><small>WELCOME TO FLOWBIZ ONE</small><h2>เริ่มใช้งานใน 5 นาที</h2><p>คู่มือสั้นสำหรับ '+esc(roleText)+'</p></div></div><div class="help-steps">'+(PAGE_HELP[state.page]||PAGE_HELP.dashboard).steps.slice(0,4).map((x,i)=>'<div class="help-step"><b>'+(i+1)+'</b><span>'+esc(x)+'</span></div>').join('')+'</div><div class="actions"><button class="btn" id="welcomeDontShow" type="button">ไม่แสดงอีก</button><button class="btn" id="openTrialGuideFromWelcome" type="button">Trial Guide 10 นาที</button><button class="btn primary" id="welcomeStart" type="button">เริ่มใช้งาน</button></div></div>');
   const done=()=>{try{localStorage.setItem(helpKey(),'done')}catch(e){}closeModal()};
   if($('#welcomeDontShow'))$('#welcomeDontShow').onclick=done;
+  if($('#openTrialGuideFromWelcome'))$('#openTrialGuideFromWelcome').onclick=showTrialGuide;
   if($('#welcomeStart'))$('#welcomeStart').onclick=done;
 }
 function errorGuidance(message){
