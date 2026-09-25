@@ -19,7 +19,7 @@ const migrationPaths=[
 ];
 for(const p of migrationPaths) assert(fs.existsSync(new URL(p,import.meta.url)),`missing production migration: ${p}`);
 
-assert(index.includes('app.js?v=1.17.0'),'frontend cache version must be v1.17.0');
+assert(index.includes('app.js?v=1.17.1'),'frontend cache version must be v1.17.1');
 assert(index.includes('styles.css?v=1.17.0'),'stylesheet cache version must be v1.17.0');
 
 assert(app.includes("['stockadjust','±','Stock Adjustment']"),'Stock Adjustment menu missing');
