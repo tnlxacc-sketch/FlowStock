@@ -102,7 +102,7 @@ assert(deliveryPerformance.includes('id="reportVehicle"'),'delivery report has v
 assert(deliveryPerformance.includes('id="reportMonth"'),'delivery report has month filter');
 assert(ui.reportsPage().includes('data-action="salesHistoryImport"'),'admin reports expose historical sales import');
 assert(source.includes("db.rpc('admin_import_sales_history'"),'sales history import posts through atomic RPC');
-assert(source.includes('ไม่ตัด Stock ปัจจุบัน'),'sales history import states no stock impact');
+assert(source.includes('Stock IN')&&source.includes('Stock OUT')&&source.includes('ตรวจว่า Stock ไม่ติดลบก่อนบันทึก'),'sales history import creates chronological stock movements with negative-stock validation');
 ui.state.page='dashboard';
 ui.state.reportWarehouse='w2';
 assert.equal(ui.analyticsInvoices().length,1,'warehouse invoice filter');
