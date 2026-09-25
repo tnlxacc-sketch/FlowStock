@@ -16,7 +16,8 @@ const migrationPaths=[
   '../supabase/migrations/20260925080513_stock_adjustment_respects_allocations.sql',
   '../supabase/migrations/20260925084520_stock_adjustment_conversion_fk_indexes.sql',
   '../supabase/migrations/20260925084750_fix_private_helper_search_paths.sql',
-  '../supabase/migrations/20260925183000_minimum_stock_total_or_by_warehouse.sql'
+  '../supabase/migrations/20260925183000_minimum_stock_total_or_by_warehouse.sql',
+  '../supabase/migrations/20260925184500_minimum_stock_fk_indexes.sql'
 ];
 for(const p of migrationPaths) assert(fs.existsSync(new URL(p,import.meta.url)),`missing production migration: ${p}`);
 
@@ -109,3 +110,8 @@ assert(minimumSql.includes("v_policy not in ('TOTAL','BY_WAREHOUSE')"),'Minimum 
 assert(minimumSql.includes('minimum_stock >= 0'),'Warehouse minimum non-negative guard missing');
 assert(minimumSql.includes("private.require_role(array['ADMIN'])"),'Warehouse minimum mutations must require Admin');
 assert(minimumSql.includes('tenant_select_product_warehouse_minimums'),'Warehouse minimum tenant read policy missing');
+
+const minimumIndexSql=fs.readFileSync(new URL('../supabase/migrations/20260925184500_minimum_stock_fk_indexes.sql',import.meta.url),'utf8');
+assert(minimumIndexSql.includes('idx_product_warehouse_minimums_product_id'),'Product FK index missing');
+assert(minimumIndexSql.includes('idx_product_warehouse_minimums_warehouse_id'),'Warehouse FK index missing');
+assert(minimumIndexSql.includes('idx_product_warehouse_minimums_updated_by'),'Updated-by FK index missing');
