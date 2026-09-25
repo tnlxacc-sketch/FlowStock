@@ -1011,6 +1011,40 @@ function normalizeWarehouseMinimumImport(text){
   });
   return {rows,errors,blankRows,totalRows:Math.max(0,raw.length-1)};
 }
+async function previewWarehouseMinimumSettingsUpload(){
+  if(!can('ADMIN'))return toast('เฉพาะ Admin',true);
+  const file=$('#warehouseMinimumDirectFile')?.files?.[0];
+  const preview=$('#warehouseMinimumDirectPreview'),commit=$('#warehouseMinimumDirectCommit');
+  if(!file)return toast('กรุณาเลือกไฟล์ CSV',true);
+  if(file.size>5*1024*1024)return toast('ไฟล์ต้องไม่เกิน 5 MB',true);
+  const parsed=normalizeWarehouseMinimumImport(await file.text());
+  pendingWarehouseMinimumImport=parsed.errors.length?null:parsed;
+  if(commit)commit.disabled=parsed.errors.length>0;
+  if(!preview)return;
+  if(parsed.errors.length){
+    preview.innerHTML=`<div class="alert danger"><b>พบ ${nf.format(parsed.errors.length)} จุดที่ต้องแก้</b><br>${parsed.errors.slice(0,12).map(esc).join('<br>')}${parsed.errors.length>12?'<br>...':''}</div>`;
+    return;
+  }
+  const previewRows=parsed.rows.slice(0,8).map(x=>`<tr><td><b>${esc(x._preview.product_code)}</b> ${esc(x._preview.product_name)}</td><td>${esc(x._preview.warehouse_code)} ${esc(x._preview.warehouse_name)}</td><td class="num">${qty(x.minimum_stock)}</td></tr>`);
+  preview.innerHTML=`<div class="alert ok"><b>ไฟล์ผ่านการตรวจสอบ</b> • จะตั้งค่า ${nf.format(parsed.rows.length)} รายการ • เว้นว่าง/ใช้ Default ${nf.format(parsed.blankRows)} รายการ</div>${table(['สินค้า','คลัง','Minimum'],previewRows,'warehouse-minimum-direct-preview')}`;
+}
+async function commitWarehouseMinimumSettingsUpload(){
+  if(!can('ADMIN'))return toast('เฉพาะ Admin',true);
+  if(!pendingWarehouseMinimumImport)return toast('กรุณาเลือกไฟล์และกดตรวจไฟล์ก่อน',true);
+  if(!window.confirm('ยืนยันอัปโหลดทับ Minimum Stock รายคลังเดิมทั้งหมดของบริษัท?\n\nค่า Default ใน Product Master จะไม่ถูกแก้'))return;
+  const rows=pendingWarehouseMinimumImport.rows.map(({_preview,...x})=>x);
+  setLoading(true);
+  try{
+    const {error}=await db.rpc('admin_replace_warehouse_minimums',{p_rows:rows});
+    if(error)throw error;
+    const {data,error:readError}=await db.from('product_warehouse_minimums').select('*').order('warehouse_id').order('product_id');
+    if(readError)throw readError;
+    state.data.warehouseMinimums=data||[];
+    pendingWarehouseMinimumImport=null;
+    toast(`อัปโหลด Minimum Stock รายคลังแล้ว ${rows.length} รายการ`);
+    render();
+  }catch(err){fail(err)}finally{setLoading(false)}
+}
 function warehouseMinimumModal(){
   if(!can('ADMIN'))return toast('เฉพาะ Admin',true);
   pendingWarehouseMinimumImport=null;
@@ -1095,7 +1129,13 @@ function settingsPage(){
     </div><button class="btn primary" data-action="saveOrderPolicies">บันทึก Order Policy</button>
     <p class="muted">Warehouse Issue ยังคง Strict — ห้าม Stock ติดลบเสมอ • BLOCK ตรวจ Available Stock ณ เวลาสร้าง Order และไม่ทำ Reservation</p></div>
     <div class="panel"><h3>Stock Count Adjustment Policy</h3><p class="muted">กำหนดว่าหลังคลังตรวจนับและ Admin Final แล้ว ระบบจะทำอย่างไรกับส่วนต่าง</p><div class="form"><label>นโยบายหลัง Final<select id="stockCountPolicy" data-searchable="off"><option value="AUTO_ADJUST" ${countPolicy==='AUTO_ADJUST'?'selected':''}>AUTO ADJUST — Final แล้วปรับ Stock ตามยอดนับจริงอัตโนมัติ</option><option value="REVIEW_ONLY" ${countPolicy==='REVIEW_ONLY'?'selected':''}>REVIEW ONLY — เก็บผลตรวจและส่วนต่าง แต่ไม่เปลี่ยน Stock</option><option value="MANUAL_ADJUST" ${countPolicy==='MANUAL_ADJUST'?'selected':''}>MANUAL ADJUST — Final ผลตรวจ แล้วสร้าง Stock Adjustment เพื่อให้ Admin Post</option></select></label></div><button class="btn primary" data-action="saveStockCountPolicy">บันทึก Stock Count Policy</button><p class="muted">Policy ถูก Snapshot ตั้งแต่เริ่มรอบตรวจนับ การเปลี่ยนค่าภายหลังจะไม่ย้อนกลับไปเปลี่ยนรอบเดิม</p></div>
-    <div class="panel"><h3>Minimum Stock Policy</h3><p class="muted">เลือกวิธีแจ้งเตือน Stock ต่ำกว่า Minimum โดยไม่เปลี่ยนสูตร Stock หรือธุรกรรมเดิม</p><div class="form"><label>วิธีคุม Minimum Stock<select id="minimumStockPolicy" data-searchable="off"><option value="TOTAL" ${minPolicy==='TOTAL'?'selected':''}>TOTAL — รวม Stock ทุกคลังแล้วเทียบ Minimum ของ Product</option><option value="BY_WAREHOUSE" ${minPolicy==='BY_WAREHOUSE'?'selected':''}>BY WAREHOUSE — เทียบ Stock และ Minimum แยกแต่ละคลัง</option></select></label></div><div class="actions"><button class="btn primary" data-action="saveMinimumStockPolicy">บันทึก Minimum Stock Policy</button><button class="btn" data-action="editWarehouseMinimums">ตั้งค่า Minimum รายคลัง</button></div><p class="muted">เมื่อเลือก BY WAREHOUSE: ถ้าช่องรายคลังเว้นว่าง ระบบใช้ Minimum จาก Product Master เป็น Default • ใส่ 0 เพื่อปิด Minimum เฉพาะคลังนั้น</p></div>
+    <div class="panel"><h3>Minimum Stock Policy</h3><p class="muted">เลือกวิธีแจ้งเตือน Stock ต่ำกว่า Minimum โดยไม่เปลี่ยนสูตร Stock หรือธุรกรรมเดิม</p><div class="form"><label>วิธีคุม Minimum Stock<select id="minimumStockPolicy" data-searchable="off"><option value="TOTAL" ${minPolicy==='TOTAL'?'selected':''}>TOTAL — รวม Stock ทุกคลังแล้วเทียบ Minimum ของ Product</option><option value="BY_WAREHOUSE" ${minPolicy==='BY_WAREHOUSE'?'selected':''}>BY WAREHOUSE — เทียบ Stock และ Minimum แยกแต่ละคลัง</option></select></label></div>
+    <div class="actions"><button class="btn primary" data-action="saveMinimumStockPolicy">บันทึก Minimum Stock Policy</button></div>
+    <div class="alert ok" style="margin-top:14px"><b>โหลด CSV Minimum แยกคลังได้ตรงนี้เลย</b> • ไม่ต้องเข้าเมนูอื่น • อัปโหลดแบบ Replace เฉพาะค่า Minimum รายคลัง และไม่แก้ Default ใน Product Master</div>
+    <div class="form"><label class="full">ไฟล์ Minimum Stock รายคลัง (CSV)<input id="warehouseMinimumDirectFile" type="file" accept=".csv,text/csv"></label></div>
+    <div class="actions"><button class="btn" data-action="downloadWarehouseMinimumTemplate">ดาวน์โหลด Template CSV</button><button class="btn" data-action="previewWarehouseMinimumSettingsUpload">ตรวจไฟล์ CSV</button><button id="warehouseMinimumDirectCommit" class="btn primary" data-action="commitWarehouseMinimumSettingsUpload" disabled>อัปโหลดทับค่ารายคลัง</button><button class="btn" data-action="editWarehouseMinimums">แก้ค่ารายคลังในตาราง</button></div>
+    <div id="warehouseMinimumDirectPreview" style="margin-top:10px">${empty('เลือกไฟล์ CSV แล้วกด “ตรวจไฟล์ CSV”')}</div>
+    <p class="muted">BY WAREHOUSE: minimum_stock ว่าง = ใช้ Default จาก Product Master • ใส่ 0 = ปิด Minimum เฉพาะสินค้านั้น/คลังนั้น</p></div>
     <div class="panel"><h3>เกณฑ์แจ้งเตือน Contribution</h3><p class="muted">เฉพาะ Admin กำหนดเกณฑ์ของบริษัท • รายการที่ต่ำกว่าเกณฑ์จะแสดงบนแผงวันนี้และกดดู Invoice ได้</p><div class="form"><label>Contribution ต่ำกว่า (%)<input id="contributionThreshold" type="number" min="0" max="100" step="0.01" value="${esc(threshold)}"></label></div><button class="btn primary" data-action="saveContributionThreshold">บันทึกเกณฑ์</button><p class="muted">ค่าเริ่มต้น 12% จนกว่า Admin จะเปลี่ยน • Contribution % = (ยอดขาย − ต้นทุนสินค้า − ค่าขนส่ง − ค่าใช้จ่ายอื่น) ÷ ยอดขาย × 100</p></div>
     <div class="split"><div class="panel"><h3>Business Rules ที่ใช้งาน</h3><table><tbody><tr><td>Order Stock Policy</td><td><b>${esc(stockPolicy)}</b></td></tr><tr><td>Order Number</td><td><b>${esc(numberPolicy)}</b></td></tr><tr><td>Stock Count Policy</td><td><b>${esc(countPolicy)}</b></td></tr><tr><td>Minimum Stock</td><td><b>${esc(minPolicy)}</b></td></tr><tr><td>Stock Issue</td><td><b>Strict — ห้ามติดลบ</b></td></tr><tr><td>Partial Issue</td><td>อนุญาต พร้อมแสดงยอดค้าง</td></tr><tr><td>Revenue Qty</td><td>Customer Received Qty</td></tr><tr><td>GP Policy</td><td>${esc(state.company.gp_policy)}</td></tr><tr><td>Duplicate Submit</td><td>ป้องกันด้วย Request ID</td></tr><tr><td>POD Storage</td><td>Private • PDF/JPG/PNG • สูงสุด 10 MB</td></tr></tbody></table></div><div class="panel"><h3>ล็อกงวด</h3><div class="form"><label>เดือน<input id="newPeriodMonth" type="month" value="${current}"></label></div><button class="btn danger" data-action="closeNewPeriod">Close Month</button><p class="muted">เมื่อปิดงวด ระบบห้ามสร้าง/แก้ Order, GR, Invoice และ Monthly Cost ในเดือนนั้น</p></div></div>
     <div class="panel"><h3>ประวัติงวด</h3>${table(['เดือน','สถานะ','วันที่ปิด','เหตุผล Reopen',''],periodRows)}</div>`;
@@ -1174,6 +1214,9 @@ const actions={
     state.data.settings=data;state.stockBelowMin=false;toast('บันทึก Minimum Stock Policy แล้ว');render();
   },
   editWarehouseMinimums(){warehouseMinimumModal()},
+  downloadWarehouseMinimumTemplate(){downloadWarehouseMinimumTemplate()},
+  previewWarehouseMinimumSettingsUpload(){previewWarehouseMinimumSettingsUpload().catch(fail)},
+  commitWarehouseMinimumSettingsUpload(){commitWarehouseMinimumSettingsUpload().catch(fail)},
   async saveContributionThreshold(){if(!can('ADMIN'))return toast('เฉพาะ Admin',true);const value=$('#contributionThreshold')?.value,percent=Number(value);if(value===''||!Number.isFinite(percent)||percent<0||percent>100||Math.round(percent*100)!==percent*100)return toast('ระบุเปอร์เซ็นต์ 0–100 ทศนิยมไม่เกิน 2 ตำแหน่ง',true);const {error}=await db.rpc('admin_set_contribution_alert_pct',{p_pct:percent});if(error)return fail(error);const {data,error:readError}=await db.from('app_settings').select('*');if(readError)return fail(readError);state.data.settings=data;await Promise.all([refreshTodayStatus(),refreshReportKpis()]);toast('บันทึกเกณฑ์ Contribution แล้ว');render()},
   reportPrev(){state.reportPage=Math.max(0,state.reportPage-1);refreshInvoicePage().catch(fail)},
   reportNext(){state.reportPage++;refreshInvoicePage().catch(fail)},
