@@ -5,7 +5,7 @@ import vm from 'node:vm';
 const source=fs.readFileSync(new URL('../app.js',import.meta.url),'utf8').replace(/\ninit\(\)\.catch[\s\S]*$/,'');
 const context={console,Blob,URL,Intl,crypto,confirm:()=>true,prompt:()=>'',MutationObserver:class{observe(){} disconnect(){}},window:{print(){},open(){}},document:{body:{},querySelector(){return null},querySelectorAll(){return[]}},supabase:{createClient(){return{}}}};
 vm.createContext(context);
-vm.runInContext(`${source}\nglobalThis.__ui={state,actions,roleMenus,dashboardPage,todayPanel,ordersPage,customersPage,warehousePage,stockPage,countsPage,transfersPage,deliveryPage,profitPage,customer360Page,stockHealthPage,deliveryPerformancePage,costVariancePage,reportsPage,mastersPage,usersPage,settingsPage,dataManagementPage,auditPage,commercialPage,analyticsInvoices,analyticsTrips,analyticsBalances,profitTable,invoiceGross,invoiceContribution,parseCsv,normalizeImport,normalizeOpeningStockImport,movementRows,getReportKpis,serverInvoiceTable,minimumStockPolicy,lowStockRows,effectiveWarehouseMinimum};`,context);
+vm.runInContext(`${source}\nglobalThis.__ui={state,actions,roleMenus,dashboardPage,todayPanel,ordersPage,customersPage,warehousePage,stockPage,countsPage,transfersPage,deliveryPage,profitPage,customer360Page,stockHealthPage,deliveryPerformancePage,costVariancePage,reportsPage,mastersPage,usersPage,settingsPage,dataManagementPage,auditPage,commercialPage,analyticsInvoices,analyticsTrips,analyticsBalances,profitTable,invoiceGross,invoiceContribution,parseCsv,normalizeImport,normalizeOpeningStockImport,movementRows,getReportKpis,serverInvoiceTable,minimumStockPolicy,lowStockRows,effectiveWarehouseMinimum,normalizeWarehouseMinimumImport,warehouseMinimumTemplateRows};`,context);
 
 const ui=context.__ui,year=String(new Date().getFullYear());
 Object.assign(ui.state,{profile:{app_role:'ADMIN',company_id:'co1'},company:{code:'DEMO',is_demo:true,subscription_plan:'DEMO',subscription_status:'ACTIVE',max_users:10,gp_policy:'ACTUAL'},isPlatformAdmin:true,reportYear:year,reportWarehouse:'ALL',reportCustomer:'ALL',countPeriod:'ALL',profitView:'invoice',search:'',page:'dashboard'});
@@ -59,6 +59,25 @@ assert.equal(lowRows[0].minimum,15,'fallback uses Product minimum_stock');
 
 ui.state.data.settings=[];
 ui.state.data.warehouseMinimums=[];
+
+// Warehouse Minimum upload UAT: CSV replace file validates codes, blanks and zero.
+const wmCsv=[
+  'product_code,product_name,warehouse_code,warehouse_name,default_minimum_stock,minimum_stock',
+  'AAA-01,Product A,WH1,Main,15,8',
+  'AAA-01,Product A,WH2,Branch,15,',
+  'BBB-01,Product B,WH2,Branch,0,0'
+].join('\n');
+const wmParsed=ui.normalizeWarehouseMinimumImport(wmCsv);
+assert.equal(wmParsed.errors.length,0,'warehouse minimum upload file validates');
+assert.equal(wmParsed.rows.length,2,'blank minimum means fallback and is not persisted as override');
+assert.equal(wmParsed.blankRows,1,'blank minimum row is counted as Default fallback');
+assert.equal(wmParsed.rows.find(x=>x._preview.product_code==='BBB-01').minimum_stock,0,'explicit zero is preserved');
+const wmTemplate=ui.warehouseMinimumTemplateRows();
+assert.equal(wmTemplate.length,4,'template includes every active product x warehouse pair');
+assert.equal(wmTemplate[0].length,6,'template has six upload/reference columns');
+const wmBad=ui.normalizeWarehouseMinimumImport('product_code,warehouse_code,minimum_stock\nBAD,WH1,5');
+assert.equal(wmBad.errors.length,1,'unknown product is rejected before replace upload');
+
 
 ui.state.data.todayStatus={date:`${year}-09-23`,orders:1,invoices:5,revenue:963427.2,trips:2,completed_trips:2,future_completed_trips:2,waiting_logistics:0,late_trips:0,stockout_rows:0,low_contribution_invoices:1,contribution_threshold_pct:18.5};
 ui.state.data.reportKpis={finances:{low_contribution:1,contribution_threshold_pct:18.5}};
