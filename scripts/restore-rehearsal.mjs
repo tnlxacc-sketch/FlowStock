@@ -71,6 +71,7 @@ select json_build_object(
  'table_counts',json_build_object(
    'customers',(select count(*) from public.customers where company_id=:'company_id'::uuid),
    'products',(select count(*) from public.products where company_id=:'company_id'::uuid),
+   'product_warehouse_minimums',(select count(*) from public.product_warehouse_minimums where company_id=:'company_id'::uuid),
    'warehouses',(select count(*) from public.warehouses where company_id=:'company_id'::uuid),
    'orders',(select count(*) from public.orders where company_id=:'company_id'::uuid),
    'order_lines',(select count(*) from public.order_lines where company_id=:'company_id'::uuid),
