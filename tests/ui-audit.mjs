@@ -59,6 +59,8 @@ ui.state.data.transferLines=[
   {id:'trl1',transfer_id:'tr1',product_id:'p1',sent_qty:10000,received_qty:10000},
   {id:'trl2',transfer_id:'tr2',product_id:'p2',sent_qty:3000,received_qty:0}
 ];
+// Page-render smoke tests should use local fixture fallbacks, not the narrow KPI fixture above.
+ui.state.data.reportKpisKey='__STALE__';
 
 const pages=['dashboardPage','ordersPage','customersPage','warehousePage','stockPage','countsPage','transfersPage','deliveryPage','profitPage','customer360Page','stockHealthPage','deliveryPerformancePage','costVariancePage','reportsPage','mastersPage','usersPage','settingsPage','dataManagementPage','auditPage','commercialPage'];
 const pageKeys=new Set(Object.values(ui.roleMenus).flat().map(x=>x[0]).concat(['executive','customers','commercial','inactive']));
