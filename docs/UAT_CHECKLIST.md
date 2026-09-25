@@ -103,3 +103,19 @@ Record tester, date, company, role, expected result, actual result, and evidence
 11. Keyboard UAT: focus, type, Arrow Up/Down, Enter, Escape.
 12. Mobile UAT: tap search field, type Thai/English/code, select result without horizontal overflow.
 13. Short dropdowns such as Status, Month, Plan and Role remain normal native dropdowns unless they contain a large master list.
+
+
+## v1.15.2 Backup / Restore Release Gate
+
+1. Admin > สำรอง / เริ่มปีใหม่ displays Backup Archive / Restore Rehearsal / Disaster Recovery status.
+2. Without a registered archive, status must be `ยังไม่มี / ยังไม่ผ่าน / ต้องทดสอบ`.
+3. `admin_backup_restore_status()` must be accessible to ADMIN and OWNER only through authenticated role checks.
+4. Run `scripts/backup-project.mjs` against a test copy and verify archive SHA-256, manifest, PostgreSQL dump list and POD hashes.
+5. Restore that archive to a separate test target with `scripts/restore-rehearsal.mjs`.
+6. Verify critical table counts match the manifest.
+7. Verify Revenue / Product Cost / Freight / Other Cost match the manifest.
+8. Verify POD metadata/object counts and hashes.
+9. Confirm the source backup registry receives `restore_verified_at` and verification `{passed:true}` only after all restore checks succeed.
+10. Refresh Admin status and confirm `DR READY`.
+11. Confirm restore rehearsal refuses a target Supabase URL equal to the source URL.
+12. Confirm YEAR_END rollover still requires the verified year-end SHA and is blocked if data changed after backup.
