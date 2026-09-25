@@ -587,3 +587,174 @@ body:has(.repack-entry-panel) #page{max-width:1460px}
     max-width:100%;
   }
 }
+
+
+/* FlowBiz One Stock Control UX v1.17.0 */
+.adjustment-entry-panel{
+  overflow:visible;
+  padding:22px 24px 20px;
+  border:1px solid #dfe8f2;
+  border-radius:18px;
+  box-shadow:0 10px 30px rgba(24,52,86,.06);
+  background:#fff;
+}
+.adjustment-header-grid{
+  display:grid;
+  grid-template-columns:1fr 1.25fr 1.25fr 1.35fr;
+  gap:16px;
+  margin-bottom:14px;
+}
+.adjustment-header-grid .full{grid-column:1/-1}
+.adjustment-header-grid label,
+.adjustment-field{
+  display:flex;
+  flex-direction:column;
+  gap:8px;
+  min-width:0;
+  color:#172b4d;
+  font-size:15px;
+  font-weight:700;
+  line-height:1.3;
+}
+.adjustment-header-grid input,
+.adjustment-header-grid select,
+.adjustment-field input,
+.adjustment-field select,
+.adjustment-entry-panel .searchable-select-input{
+  box-sizing:border-box;
+  width:100%;
+  height:48px;
+  min-height:48px;
+  padding:0 14px;
+  border:1px solid #cdd9e6;
+  border-radius:10px;
+  background:#fff;
+  color:#152844;
+  font-size:16px;
+  font-weight:600;
+  outline:none;
+}
+.adjustment-header-grid input:focus,
+.adjustment-header-grid select:focus,
+.adjustment-field input:focus,
+.adjustment-field select:focus,
+.adjustment-entry-panel .searchable-select-input:focus{
+  border-color:#4d8ccf;
+  box-shadow:0 0 0 3px rgba(54,126,201,.12);
+}
+.adjustment-rule{
+  margin:5px 0 16px;
+  padding:13px 16px;
+  border:1px solid #d8e7f8;
+  border-radius:12px;
+  background:#f5f9ff;
+  color:#355575;
+  font-size:14.5px;
+  line-height:1.55;
+}
+#adjustmentLines{display:flex;flex-direction:column;gap:10px}
+.adjustment-line{
+  display:grid;
+  grid-template-columns:minmax(300px,1.55fr) 150px 165px minmax(260px,1.2fr) 62px;
+  gap:12px;
+  align-items:start;
+  padding:15px 16px;
+  border:1px solid #dce6f0;
+  border-radius:14px;
+  background:#fbfdff;
+}
+.adjustment-field label{
+  display:flex;
+  align-items:flex-end;
+  min-height:22px;
+}
+.adjustment-field small{
+  display:block;
+  min-height:18px;
+  margin-top:0;
+  color:#71849a;
+  font-size:13px;
+  font-weight:500;
+  line-height:18px;
+}
+.adjustment-line>.remove-adjustment-line{
+  margin-top:30px;
+  height:48px;
+  min-height:48px;
+  border-radius:10px;
+}
+.adjustment-entry-panel .searchable-select{position:relative;width:100%;min-width:0}
+.adjustment-entry-panel .searchable-native-select{
+  position:absolute!important;width:1px!important;height:1px!important;opacity:0!important;pointer-events:none!important
+}
+.adjustment-entry-panel .searchable-select-list{
+  min-width:max(100%,360px);
+  max-width:520px;
+  max-height:320px;
+  z-index:110;
+}
+.adjustment-actions{
+  justify-content:space-between;
+  margin-top:16px;
+  padding-top:16px;
+  border-top:1px solid #edf2f7;
+}
+.adjustment-actions .btn{min-height:46px;border-radius:11px;font-size:15px;font-weight:700}
+.adjustment-actions .btn.primary{min-width:220px}
+
+/* Repack row: lock labels, controls and helper text to consistent vertical tracks */
+.repack-line{
+  align-items:start!important;
+}
+.repack-field>label{
+  display:flex!important;
+  align-items:flex-end!important;
+  min-height:22px!important;
+  margin:0!important;
+}
+.repack-field .searchable-select,
+.repack-field>input{
+  margin-top:0!important;
+}
+.repack-field>small{
+  min-height:18px!important;
+  line-height:18px!important;
+}
+.repack-arrow{
+  margin-top:31px!important;
+  height:48px!important;
+  display:flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  padding:0!important;
+}
+.repack-line>.remove-repack-line{
+  margin-top:30px!important;
+  align-self:start!important;
+  height:48px!important;
+  min-height:48px!important;
+}
+.repack-qty-field:after,
+.repack-note-field:after{
+  content:"";
+  display:block;
+  min-height:18px;
+  line-height:18px;
+}
+
+@media(max-width:1200px){
+  .adjustment-header-grid{grid-template-columns:1fr 1fr}
+  .adjustment-line{grid-template-columns:minmax(260px,1fr) 140px 160px}
+  .adjustment-note-field{grid-column:1/3}
+  .adjustment-line>.remove-adjustment-line{grid-column:3;margin-top:0}
+}
+@media(max-width:760px){
+  .adjustment-entry-panel{padding:18px 16px}
+  .adjustment-header-grid{grid-template-columns:1fr}
+  .adjustment-header-grid .full{grid-column:auto}
+  .adjustment-line{grid-template-columns:1fr}
+  .adjustment-note-field,.adjustment-line>.remove-adjustment-line{grid-column:auto}
+  .adjustment-line>.remove-adjustment-line{margin-top:0;width:100%}
+  .adjustment-actions{flex-direction:column-reverse;align-items:stretch}
+  .adjustment-actions .btn,.adjustment-actions .btn.primary{width:100%}
+}
