@@ -412,7 +412,7 @@ async function loadData(){
   }
 }
 function render(){
-  const pages={dashboard:dashboardPage,executive:dashboardPage,orders:ordersPage,warehouse:warehousePage,stock:stockPage,counts:countsPage,transfers:transfersPage,repack:repackPage,delivery:deliveryPage,profit:profitPage,customer360:customer360Page,stockhealth:stockHealthPage,deliveryperformance:deliveryPerformancePage,costvariance:costVariancePage,reports:reportsPage,customers:customersPage,masters:mastersPage,users:usersPage,settings:settingsPage,datamanagement:dataManagementPage,audit:auditPage,commercial:commercialPage,inactive:inactivePage};
+  const pages={dashboard:dashboardPage,executive:dashboardPage,orders:ordersPage,warehouse:warehousePage,stock:stockPage,counts:countsPage,stockadjust:stockAdjustmentPage,transfers:transfersPage,repack:repackPage,delivery:deliveryPage,profit:profitPage,customer360:customer360Page,stockhealth:stockHealthPage,deliveryperformance:deliveryPerformancePage,costvariance:costVariancePage,reports:reportsPage,customers:customersPage,masters:mastersPage,users:usersPage,settings:settingsPage,datamanagement:dataManagementPage,audit:auditPage,commercial:commercialPage,inactive:inactivePage};
   $('#page').innerHTML=(pages[state.page]||dashboardPage)();wireSort();wirePage();
 }
 function wirePage(){
@@ -437,6 +437,7 @@ function wirePage(){
   const movementFrom=$('#movementFrom');if(movementFrom){movementFrom.value=state.movementFrom;movementFrom.onchange=()=>{state.movementFrom=movementFrom.value;render()}}
   const movementTo=$('#movementTo');if(movementTo){movementTo.value=state.movementTo;movementTo.onchange=()=>{state.movementTo=movementTo.value;render()}}
   if(state.page==='repack')wireRepackPage();
+  if(state.page==='stockadjust')wireStockAdjustmentPage();
 }
 const byId=(list,id)=>state.data[list]?.find(x=>x.id===id);
 const customerName=id=>byId('customers',id)?.name||'-';const product=id=>byId('products',id)||{};const warehouse=id=>byId('warehouses',id)||{};
@@ -625,6 +626,149 @@ function countsPage(){
     +'<div class="panel"><div class="section-title"><h3>'+(owner?'ผลตรวจนับล่าสุด':'รายการรอบตรวจนับ')+'</h3><span class="muted">กดหัวคอลัมน์เพื่อเรียงข้อมูล</span></div>'
     +table(['Count No.','คลัง','Snapshot','Policy','Book Qty','ยอดตรวจจริง','ส่วนต่าง','สถานะ','ดำเนินการ'],rows,'count-result-table')
     +'</div>';
+}
+function adjustmentProductOptions(selected=''){
+  return state.data.products.filter(x=>x.active!==false).map(p=>'<option value="'+p.id+'" '+(p.id===selected?'selected':'')+'>'+esc(p.code)+' • '+esc(p.name)+' • '+esc(p.base_uom||'')+'</option>').join('');
+}
+function adjustmentLineHtml(prefill={}){
+  const direction=Number(prefill.adjustment_qty||0)<0?'OUT':'IN';
+  const amount=Math.abs(Number(prefill.adjustment_qty||0))||'';
+  return '<div class="adjustment-line">'
+    +'<div class="adjustment-field"><label>สินค้า *</label><select class="adj-product" required>'+adjustmentProductOptions(prefill.product_id||'')+'</select><small class="adj-current muted"></small></div>'
+    +'<div class="adjustment-field"><label>ปรับ *</label><select class="adj-direction" data-searchable="off"><option value="IN" '+(direction==='IN'?'selected':'')+'>+ เพิ่ม</option><option value="OUT" '+(direction==='OUT'?'selected':'')+'>− ลด</option></select></div>'
+    +'<div class="adjustment-field"><label>จำนวน *</label><input class="adj-qty" type="number" min="0.0001" step="any" value="'+amount+'" required placeholder="0"></div>'
+    +'<div class="adjustment-field adjustment-note-field"><label>เหตุผลรายการ *</label><input class="adj-line-reason" value="'+esc(prefill.reason||'')+'" required placeholder="เช่น ของชำรุด / พบของเกิน"></div>'
+    +'<button class="btn danger small-btn remove-adjustment-line" type="button">ลบ</button>'
+    +'</div>';
+}
+function stockAdjustmentPage(){
+  const prefillId=state.prefillAdjustmentCountId||null;
+  const count=prefillId?(state.data.counts||[]).find(x=>x.id===prefillId):null;
+  const countLines=count?(state.data.countLines||[]).filter(x=>x.count_id===count.id):[];
+  const prefillLines=countLines.map(l=>({
+    product_id:l.product_id,
+    adjustment_qty:Number(l.count_qty||0)-Number(l.book_qty||0),
+    reason:l.variance_reason||('ปรับตาม '+count.count_no)
+  })).filter(x=>x.adjustment_qty!==0);
+  const defaultWh=count?.warehouse_id||state.data.warehouses?.[0]?.id||'';
+  const history=(state.data.adjustments||[]).filter(a=>{
+    const searchText=((a.adjustment_no||'')+' '+(a.reason||'')+' '+(warehouse(a.warehouse_id).code||'')).toLowerCase();
+    return !state.search||searchText.includes(state.search);
+  }).map(a=>{
+    const ls=(state.data.adjustmentLines||[]).filter(l=>l.adjustment_id===a.id);
+    const net=ls.reduce((sum,l)=>sum+Number(l.adjustment_qty||0),0);
+    let action='<button class="btn small-btn" data-action="viewAdjustment" data-id="'+a.id+'">เปิด</button>';
+    if(a.status==='SUBMITTED'&&can('ADMIN'))action='<button class="btn primary small-btn" data-action="postAdjustment" data-id="'+a.id+'">Post</button> '+action;
+    return '<tr><td><b>'+esc(a.adjustment_no)+'</b></td><td>'+dmy(a.adjustment_date)+'</td><td>'+esc(warehouse(a.warehouse_id).code||'-')+'</td><td>'+esc(a.reason||'-')+'</td><td class="num '+(net<0?'negative':net>0?'positive':'')+'">'+(net>0?'+':'')+qty(net)+'</td><td>'+badge(a.status)+'</td><td class="action-cell">'+action+'</td></tr>';
+  });
+  const initialLines=(prefillLines.length?prefillLines:[{}]).map(adjustmentLineHtml).join('');
+  const whOptions=(state.data.warehouses||[]).map(w=>'<option value="'+w.id+'" '+(w.id===defaultWh?'selected':'')+'>'+esc(w.code)+' • '+esc(w.name)+'</option>').join('');
+  const sourceText=count?'สร้างจากผลตรวจนับ '+esc(count.count_no)+' • ระบบเตรียมส่วนต่างให้แล้ว':'ใช้สำหรับของชำรุด พบของเกิน แก้ยอด หรือกรณีที่ต้องปรับ Stock โดยมี Audit';
+  const reasonValue=count?esc('ปรับตามผลตรวจนับ '+count.count_no):'';
+  return head('Stock Adjustment','ปรับยอดบวก/ลดแบบมีเหตุผล • WAREHOUSE ส่งรายการ • ADMIN Post จึงกระทบ Stock')
+    +'<div class="panel adjustment-entry-panel"><div class="section-title"><div><h3>สร้าง Stock Adjustment</h3><span class="muted">'+sourceText+'</span></div></div>'
+    +'<form id="adjustmentForm"><input type="hidden" id="adjustmentSourceCount" value="'+esc(count?.id||'')+'"><div class="adjustment-header-grid">'
+    +'<label>วันที่ทำรายการ *<input id="adjustmentDate" type="date" value="'+new Date().toISOString().slice(0,10)+'" required></label>'
+    +'<label>เลขเอกสาร (ไม่บังคับ)<input id="adjustmentDocNo" maxlength="100" placeholder="เช่น ADJ-2609-001 • เว้นว่าง = Auto"></label>'
+    +'<label>คลังสินค้า *<select id="adjustmentWarehouse" required>'+whOptions+'</select></label>'
+    +'<label>เหตุผลหลัก *<input id="adjustmentReason" required value="'+reasonValue+'" placeholder="เช่น ตรวจนับต่าง / ของชำรุด"></label>'
+    +'<label class="full">หมายเหตุเพิ่มเติม<input id="adjustmentNote" placeholder="ถ้ามี"></label>'
+    +'</div><div class="adjustment-rule"><b>ควบคุม:</b> การกด “ส่งให้ Admin” ยังไม่เปลี่ยน Stock • ADMIN ต้องตรวจและกด Post • การลด Stock ห้ามทำให้ On Hand ติดลบ</div>'
+    +'<div id="adjustmentLines">'+initialLines+'</div>'
+    +'<div class="actions adjustment-actions"><button class="btn" id="addAdjustmentLine" type="button">+ เพิ่มรายการ</button><button class="btn primary" type="submit">ส่งให้ Admin ตรวจและ Post</button></div></form></div>'
+    +'<div class="panel"><div class="section-title"><div><h3>ประวัติ Stock Adjustment</h3><span class="muted">SUBMITTED = ยังไม่กระทบ Stock • POSTED = กระทบแล้ว • REVERSED = กลับรายการแล้ว</span></div><input id="pageSearch" placeholder="ค้นหาเลขเอกสาร / เหตุผล / คลัง"></div>'
+    +table(['เลขเอกสาร','วันที่','คลัง','เหตุผล','สุทธิ','สถานะ','ดำเนินการ'],history,'adjustment-history-table',[4])
+    +'</div>';
+}
+function wireStockAdjustmentPage(){
+  const form=$('#adjustmentForm');if(!form)return;
+  const area=$('#adjustmentLines');
+  const wid=()=>$('#adjustmentWarehouse')?.value;
+  const refreshRow=row=>{
+    const pid=row.querySelector('.adj-product')?.value;
+    const p=product(pid);
+    const b=(state.data.balances||[]).find(x=>x.product_id===pid&&x.warehouse_id===wid());
+    const onHand=Number(b?.on_hand||0),allocated=Number(b?.allocated||0);
+    const el=row.querySelector('.adj-current');
+    if(el)el.textContent='On Hand '+qty(onHand)+' • Available '+qty(onHand-allocated)+' '+(p.base_uom||'');
+  };
+  const wireRows=()=>{
+    $$('.adjustment-line').forEach(row=>{
+      const productSel=row.querySelector('.adj-product');
+      if(productSel)productSel.onchange=()=>refreshRow(row);
+      const rm=row.querySelector('.remove-adjustment-line');
+      if(rm)rm.onclick=()=>{if($$('.adjustment-line').length>1)row.remove()};
+      refreshRow(row);
+    });
+  };
+  $('#adjustmentWarehouse').onchange=wireRows;
+  $('#addAdjustmentLine').onclick=()=>{
+    area.insertAdjacentHTML('beforeend',adjustmentLineHtml());
+    wireRows();enhanceSearchableSelects(area.lastElementChild);
+  };
+  wireRows();
+  form.onsubmit=async e=>{
+    e.preventDefault();
+    const lines=$$('.adjustment-line').map(row=>{
+      const n=Number(row.querySelector('.adj-qty').value);
+      const direction=row.querySelector('.adj-direction').value;
+      return {product_id:row.querySelector('.adj-product').value,adjustment_qty:direction==='OUT'?-n:n,reason:row.querySelector('.adj-line-reason').value.trim()};
+    });
+    if(lines.some(x=>!Number.isFinite(x.adjustment_qty)||x.adjustment_qty===0))return toast('กรอกจำนวน Adjustment ให้ครบและมากกว่า 0',true);
+    if(lines.some(x=>!x.reason))return toast('กรอกเหตุผลของทุกรายการ',true);
+    for(const x of lines.filter(x=>x.adjustment_qty<0)){
+      const b=(state.data.balances||[]).find(v=>v.product_id===x.product_id&&v.warehouse_id===wid());
+      const onHand=Number(b?.on_hand||0);
+      if(onHand+x.adjustment_qty<0)return toast('ลด Stock '+(product(x.product_id).code||'')+' เกิน On Hand ปัจจุบัน',true);
+    }
+    setLoading(true);
+    try{
+      const {data,error}=await db.rpc('submit_stock_adjustment',{
+        p_adjustment_date:$('#adjustmentDate').value,
+        p_warehouse_id:wid(),
+        p_lines:lines,
+        p_reason:$('#adjustmentReason').value.trim(),
+        p_note:$('#adjustmentNote').value.trim()||null,
+        p_request_id:requestId('ADJ'),
+        p_adjustment_no:$('#adjustmentDocNo').value.trim()||null,
+        p_source_count_id:$('#adjustmentSourceCount').value||null
+      });
+      if(error)throw error;
+      state.prefillAdjustmentCountId=null;
+      toast('ส่ง '+data.adjustment_no+' ให้ Admin แล้ว • Stock ยังไม่เปลี่ยน');
+      await loadData();render();
+    }catch(err){fail(err)}finally{setLoading(false)}
+  };
+}
+async function postStockAdjustment(id){
+  if(!can('ADMIN'))return toast('เฉพาะ Admin ที่ Post Stock Adjustment ได้',true);
+  const a=(state.data.adjustments||[]).find(x=>x.id===id);
+  if(!a)return toast('ไม่พบ Stock Adjustment',true);
+  if(!confirm('ยืนยัน Post '+a.adjustment_no+'?\nเมื่อ Post แล้ว Stock จะเปลี่ยนตามรายการ'))return;
+  await runRpc('post_stock_adjustment',{p_adjustment_id:id,p_request_id:requestId('ADJ_POST')},r=>'Post '+r.adjustment_no+' สำเร็จ • Stock อัปเดตแล้ว');
+}
+function viewStockAdjustment(id){
+  const a=(state.data.adjustments||[]).find(x=>x.id===id);
+  if(!a)return toast('ไม่พบ Stock Adjustment',true);
+  const rows=(state.data.adjustmentLines||[]).filter(x=>x.adjustment_id===id).map(l=>{
+    const p=product(l.product_id),n=Number(l.adjustment_qty||0);
+    return '<tr><td><b>'+esc(p.code||'-')+'</b> '+esc(p.name||'')+'</td><td class="num '+(n<0?'negative':'positive')+'">'+(n>0?'+':'')+qty(n)+'</td><td>'+esc(p.base_uom||'-')+'</td><td>'+esc(l.reason||'-')+'</td></tr>';
+  });
+  const postBtn=a.status==='SUBMITTED'&&can('ADMIN')?'<button class="btn primary" id="postAdjustmentModal">Post Adjustment</button>':'';
+  const reverseBtn=a.status==='POSTED'&&can('ADMIN')?'<button class="btn danger" id="reverseAdjustmentModal">Reverse</button>':'';
+  modal('<h2>'+esc(a.adjustment_no)+'</h2><p class="muted">'+dmy(a.adjustment_date)+' • '+esc(warehouse(a.warehouse_id).code||'-')+' • '+esc(a.reason||'')+'</p>'+table(['สินค้า','Adjustment','UoM','เหตุผล'],rows,'adjustment-detail',[1])+'<div class="actions">'+postBtn+reverseBtn+'<button class="btn" id="closeAdjustmentModal">ปิด</button></div>');
+  $('#closeAdjustmentModal').onclick=closeModal;
+  if($('#postAdjustmentModal'))$('#postAdjustmentModal').onclick=()=>{closeModal();postStockAdjustment(id)};
+  if($('#reverseAdjustmentModal'))$('#reverseAdjustmentModal').onclick=()=>reverseStockAdjustmentModal(id);
+}
+function reverseStockAdjustmentModal(id){
+  const a=(state.data.adjustments||[]).find(x=>x.id===id);if(!a)return;
+  modal('<h2>Reverse '+esc(a.adjustment_no)+'</h2><div class="alert danger">ระบบจะสร้าง Movement กลับรายการเดิม ไม่ลบประวัติ</div><form id="reverseAdjustmentForm"><label>เหตุผล Reverse<textarea id="reverseAdjustmentReason" minlength="5" required placeholder="อย่างน้อย 5 ตัวอักษร"></textarea></label><div class="actions"><button class="btn danger" type="submit">ยืนยัน Reverse</button><button class="btn" id="cancelReverseAdjustment" type="button">ยกเลิก</button></div></form>');
+  $('#cancelReverseAdjustment').onclick=closeModal;
+  $('#reverseAdjustmentForm').onsubmit=async e=>{
+    e.preventDefault();
+    await runRpc('reverse_stock_adjustment',{p_adjustment_id:id,p_reason:$('#reverseAdjustmentReason').value.trim(),p_request_id:requestId('ADJ_REV')},r=>'Reverse '+r.adjustment_no+' สำเร็จ');
+  };
 }
 function transfersPage(){const rows=state.data.transfers.map(t=>{const l=transferLine(t.id)||{},p=product(l.product_id),sent=Number(l.sent_qty||0),received=l.received_qty==null?null:Number(l.received_qty),action=t.status==='IN_TRANSIT'?`<button class="btn primary small-btn" data-action="receiveTransfer" data-id="${t.id}">รับปลายทาง</button>`:'<span class="muted">—</span>';return `<tr><td><b>${esc(t.transfer_no)}</b></td><td>${esc(warehouse(t.from_warehouse_id).code||'-')}</td><td>${esc(warehouse(t.to_warehouse_id).code||'-')}</td><td class="product-cell"><b>${esc(p.code||'-')}</b><span>${esc(p.name||'ไม่ระบุสินค้า')}</span><small>หน่วย: ${esc(p.base_uom||'-')}</small></td><td class="num" data-sort="${sent}">${qty(sent)}</td><td class="num" data-sort="${received==null?'':received}">${received==null?'-':qty(received)}</td><td>${badge(t.status)}</td><td class="action-cell">${action}</td></tr>`});return head('โอนระหว่างคลัง','ตัดต้นทางเมื่อส่ง และเพิ่มปลายทางเมื่อรับจริง','<button class="btn primary" data-action="newTransfer">+ สร้างใบโอน</button>')+`<div class="panel">${table(['Transfer','จาก','ไป','สินค้า','ส่ง','รับจริง','สถานะ','ดำเนินการ'],rows,'transfer-table',[4,5])}</div>`}
 function repackLineHtml(){
