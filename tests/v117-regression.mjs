@@ -14,7 +14,8 @@ const migrationPaths=[
   '../supabase/migrations/20260925075332_stock_count_policy_and_manual_adjustment.sql',
   '../supabase/migrations/20260925080235_stock_adjustment_lifecycle_support.sql',
   '../supabase/migrations/20260925080513_stock_adjustment_respects_allocations.sql',
-  '../supabase/migrations/20260925084520_stock_adjustment_conversion_fk_indexes.sql'
+  '../supabase/migrations/20260925084520_stock_adjustment_conversion_fk_indexes.sql',
+  '../supabase/migrations/20260925084750_fix_private_helper_search_paths.sql'
 ];
 for(const p of migrationPaths) assert(fs.existsSync(new URL(p,import.meta.url)),`missing production migration: ${p}`);
 
@@ -30,10 +31,10 @@ for(const policy of ['AUTO_ADJUST','REVIEW_ONLY','MANUAL_ADJUST']){
   assert(app.includes(`value="${policy}"`),`Count policy missing in UI: ${policy}`);
 }
 assert(app.includes("db.rpc('admin_set_stock_count_policy'"),'Count policy save RPC missing');
-assert(app.includes("db.rpc('post_stock_adjustment'"),'Adjustment Post RPC missing');
-assert(app.includes("db.rpc('reverse_stock_adjustment'"),'Adjustment Reverse RPC missing');
-assert(app.includes("db.rpc('post_stock_conversion'"),'Repack Post RPC missing');
-assert(app.includes("db.rpc('reverse_stock_conversion'"),'Repack Reverse RPC missing');
+assert(app.includes("runRpc('post_stock_adjustment'"),'Adjustment Post RPC missing');
+assert(app.includes("runRpc('reverse_stock_adjustment'"),'Adjustment Reverse RPC missing');
+assert(app.includes("runRpc('post_stock_conversion'")||app.includes("db.rpc('post_stock_conversion'"),'Repack Post RPC missing');
+assert(app.includes("runRpc('reverse_stock_conversion'")||app.includes("db.rpc('reverse_stock_conversion'"),'Repack Reverse RPC missing');
 
 assert(app.includes('available=onHand-allocated'),'Adjustment UI must use Available, not raw On Hand');
 assert(app.includes('Math.abs(x.adjustment_qty)>available'),'Adjustment decrease must block beyond Available');
