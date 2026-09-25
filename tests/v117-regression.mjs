@@ -15,7 +15,8 @@ const migrationPaths=[
   '../supabase/migrations/20260925080235_stock_adjustment_lifecycle_support.sql',
   '../supabase/migrations/20260925080513_stock_adjustment_respects_allocations.sql',
   '../supabase/migrations/20260925084520_stock_adjustment_conversion_fk_indexes.sql',
-  '../supabase/migrations/20260925084750_fix_private_helper_search_paths.sql'
+  '../supabase/migrations/20260925084750_fix_private_helper_search_paths.sql',
+  '../supabase/migrations/20260925183000_minimum_stock_total_or_by_warehouse.sql'
 ];
 for(const p of migrationPaths) assert(fs.existsSync(new URL(p,import.meta.url)),`missing production migration: ${p}`);
 
@@ -94,3 +95,17 @@ assert(app.includes("head('Report Center'"),'Report Center page missing');
 assert(app.includes('หน้า Report Center ไม่ใช้จำนวนแถวที่ Browser โหลดมาเป็น KPI'),'Report Center must reject browser-row KPI counts');
 assert(!app.includes("function reportsPage(){const k=getReportKpis(),latest='CSV เฉพาะรายการล่าสุดที่โหลด'"),'Legacy misleading Reports page still present');
 assert(app.includes("data-action=\"salesHistoryImport\">นำเข้าประวัติ Demo"),'Demo history import must remain available in Data Management');
+
+assert(app.includes("minimum_stock_policy"),'Minimum Stock policy setting missing');
+assert(app.includes("BY_WAREHOUSE"),'BY_WAREHOUSE Minimum Stock mode missing');
+assert(app.includes("product_warehouse_minimums"),'Warehouse Minimum Stock data source missing');
+assert(app.includes("admin_replace_warehouse_minimums"),'Warehouse Minimum Stock save RPC missing');
+assert(app.includes("admin_set_minimum_stock_policy"),'Minimum Stock policy save RPC missing');
+assert(app.includes("ช่องว่าง = ใช้ Default จาก Product Master"),'Warehouse Minimum fallback guidance missing');
+
+const minimumSql=fs.readFileSync(new URL('../supabase/migrations/20260925183000_minimum_stock_total_or_by_warehouse.sql',import.meta.url),'utf8');
+assert(minimumSql.includes('create table if not exists public.product_warehouse_minimums'),'Warehouse minimum table migration missing');
+assert(minimumSql.includes("v_policy not in ('TOTAL','BY_WAREHOUSE')"),'Minimum policy validation missing');
+assert(minimumSql.includes('minimum_stock >= 0'),'Warehouse minimum non-negative guard missing');
+assert(minimumSql.includes("private.require_role(array['ADMIN'])"),'Warehouse minimum mutations must require Admin');
+assert(minimumSql.includes('tenant_select_product_warehouse_minimums'),'Warehouse minimum tenant read policy missing');
