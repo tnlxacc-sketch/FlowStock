@@ -309,7 +309,7 @@ async function loadData(){
     }else state.data[name]=result?.data??[];
   };
   const runBatch=async entries=>{
-    const concurrency=3;
+    const concurrency=1;
     for(let i=0;i<entries.length;i+=concurrency){
       const chunk=entries.slice(i,i+concurrency);
       const results=await Promise.all(chunk.map(([,query])=>query));
