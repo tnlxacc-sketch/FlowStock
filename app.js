@@ -195,8 +195,28 @@ function sortableValue(v){
   if(numeric!==''&&Number.isFinite(Number(numeric)))return {type:'number',value:Number(numeric)};
   return {type:'text',value:s};
 }
-function wireSort(){ $('#page th.sortable').forEach(th=>th.onclick=()=>{const body=th.closest('table').tBodies[0],i=+th.dataset.col,asc=th.dataset.asc!=='1';[...body.rows].sort((a,b)=>{const xv=sortableValue(a.cells[i]?.dataset.sort??a.cells[i]?.innerText??''),yv=sortableValue(b.cells[i]?.dataset.sort??b.cells[i]?.innerText??'');let cmp;if(xv.type===yv.type&&(xv.type==='date'||xv.type==='number'))cmp=xv.value-yv.value;else cmp=String(xv.value).localeCompare(String(yv.value),'th',{numeric:true,sensitivity:'base'});return cmp*(asc?1:-1)}).forEach(r=>body.appendChild(r));$('th',th.closest('table')).forEach(h=>{if(h!==th)delete h.dataset.asc});th.dataset.asc=asc?'1':'0'})}
-
+function wireSort(){
+  document.querySelectorAll('#page th.sortable').forEach(th=>{
+    th.onclick=()=>{
+      const table=th.closest('table');
+      const body=table?.tBodies?.[0];
+      if(!body)return;
+      const i=Number(th.dataset.col),asc=th.dataset.asc!=='1';
+      [...body.rows]
+        .sort((a,b)=>{
+          const xv=sortableValue(a.cells[i]?.dataset.sort??a.cells[i]?.innerText??'');
+          const yv=sortableValue(b.cells[i]?.dataset.sort??b.cells[i]?.innerText??'');
+          let cmp;
+          if(xv.type===yv.type&&(xv.type==='date'||xv.type==='number'))cmp=xv.value-yv.value;
+          else cmp=String(xv.value).localeCompare(String(yv.value),'th',{numeric:true,sensitivity:'base'});
+          return cmp*(asc?1:-1);
+        })
+        .forEach(r=>body.appendChild(r));
+      table.querySelectorAll('th.sortable').forEach(h=>{if(h!==th)delete h.dataset.asc});
+      th.dataset.asc=asc?'1':'0';
+    };
+  });
+}
 async function init(){
   bindShell();
   const {data:{session}}=await db.auth.getSession();
