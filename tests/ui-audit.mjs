@@ -5,13 +5,13 @@ import vm from 'node:vm';
 const source=fs.readFileSync(new URL('../app.js',import.meta.url),'utf8').replace(/\ninit\(\)\.catch[\s\S]*$/,'');
 const context={console,Blob,URL,Intl,crypto,confirm:()=>true,prompt:()=>'',MutationObserver:class{observe(){} disconnect(){}},window:{print(){},open(){}},document:{body:{},querySelector(){return null},querySelectorAll(){return[]}},supabase:{createClient(){return{}}}};
 vm.createContext(context);
-vm.runInContext(`${source}\nglobalThis.__ui={state,actions,roleMenus,dashboardPage,todayPanel,ordersPage,customersPage,warehousePage,stockPage,countsPage,transfersPage,deliveryPage,profitPage,customer360Page,stockHealthPage,deliveryPerformancePage,costVariancePage,reportsPage,mastersPage,usersPage,settingsPage,dataManagementPage,auditPage,commercialPage,analyticsInvoices,analyticsTrips,analyticsBalances,profitTable,invoiceGross,invoiceContribution,parseCsv,normalizeImport,normalizeOpeningStockImport,movementRows,getReportKpis,serverInvoiceTable};`,context);
+vm.runInContext(`${source}\nglobalThis.__ui={state,actions,roleMenus,dashboardPage,todayPanel,ordersPage,customersPage,warehousePage,stockPage,countsPage,transfersPage,deliveryPage,profitPage,customer360Page,stockHealthPage,deliveryPerformancePage,costVariancePage,reportsPage,mastersPage,usersPage,settingsPage,dataManagementPage,auditPage,commercialPage,analyticsInvoices,analyticsTrips,analyticsBalances,profitTable,invoiceGross,invoiceContribution,parseCsv,normalizeImport,normalizeOpeningStockImport,movementRows,getReportKpis,serverInvoiceTable,minimumStockPolicy,lowStockRows,effectiveWarehouseMinimum};`,context);
 
 const ui=context.__ui,year=String(new Date().getFullYear());
 Object.assign(ui.state,{profile:{app_role:'ADMIN',company_id:'co1'},company:{code:'DEMO',is_demo:true,subscription_plan:'DEMO',subscription_status:'ACTIVE',max_users:10,gp_policy:'ACTUAL'},isPlatformAdmin:true,reportYear:year,reportWarehouse:'ALL',reportCustomer:'ALL',countPeriod:'ALL',profitView:'invoice',search:'',page:'dashboard'});
 ui.state.data={
   customers:[{id:'c1',code:'C001',name:'Alpha',region:'BKK',active:true},{id:'c2',code:'C002',name:'Beta',active:true}],
-  productGroups:[{id:'g1',code:'AAA',name:'Group A'}],products:[{id:'p1',code:'AAA-01',name:'Product A',base_uom:'EA',group_id:'g1',active:true},{id:'p2',code:'BBB-01',name:'Product B',base_uom:'EA',active:true}],
+  productGroups:[{id:'g1',code:'AAA',name:'Group A'}],products:[{id:'p1',code:'AAA-01',name:'Product A',base_uom:'EA',group_id:'g1',minimum_stock:15,active:true},{id:'p2',code:'BBB-01',name:'Product B',base_uom:'EA',minimum_stock:0,active:true}],
   warehouses:[{id:'w1',code:'WH1',name:'Main',active:true},{id:'w2',code:'WH2',name:'Branch',active:true}],suppliers:[],vehicleTypes:[{id:'vt1',code:'TANK',name:'Tank truck',active:true}],vehicles:[{id:'v1',code:'TR01',plate_no:'1AA-1111',vehicle_type:'TANK',active:true}],drivers:[{id:'d1',code:'D001',name:'Driver One',active:true}],
   balances:[{product_id:'p1',warehouse_id:'w1',on_hand:10,allocated:2},{product_id:'p2',warehouse_id:'w2',on_hand:0,allocated:0}],
   movements:[{product_id:'p1',warehouse_id:'w1',movement_type:'RECEIPT',reference_no:'GR-1',qty:10,created_at:`${year}-01-02`}],
@@ -21,8 +21,45 @@ ui.state.data={
   trips:[{id:'t1',trip_no:'TR-1',order_id:'o1',vehicle_id:'v1',driver_id:'d1',status:'COMPLETED',planned_start:`${year}-01-03`,planned_end:`${year}-01-03`,completed_at:`${year}-01-03`,standard_freight:20,actual_freight:25}],
   tripLines:[{id:'tl1',trip_id:'t1',order_line_id:'ol1',product_id:'p1',issued_qty:2,received_qty:2},{id:'tl2',trip_id:'t1',order_line_id:'ol2',product_id:'p2',issued_qty:1,received_qty:1}],deliveryDocs:[],
   invoices:[{id:'i1',invoice_no:'INV-1',invoice_date:`${year}-01-03`,customer_id:'c1',revenue:300,product_cost:120,freight_cost:30,other_cost:0,gp_status:'FINAL'}],
-  invoiceOrders:[{invoice_id:'i1',order_id:'o1'}],invoiceTrips:[{invoice_id:'i1',trip_id:'t1'}],costs:[{product_id:'p1',cost_month:`${year}-01-01`,unit_cost:60}],expenseTypes:[{id:'e1',code:'TOLL',name:'Toll',category:'DIRECT_EXPENSE',basis:'MANUAL',include_in_contribution:true,active:true}],expenseRates:[],actualExpenses:[],counts:[],countLines:[],periods:[],settings:[],openingBatches:[],openingLines:[],accessRequests:[],users:[],audit:[],tenants:[]
+  invoiceOrders:[{invoice_id:'i1',order_id:'o1'}],invoiceTrips:[{invoice_id:'i1',trip_id:'t1'}],costs:[{product_id:'p1',cost_month:`${year}-01-01`,unit_cost:60}],expenseTypes:[{id:'e1',code:'TOLL',name:'Toll',category:'DIRECT_EXPENSE',basis:'MANUAL',include_in_contribution:true,active:true}],expenseRates:[],actualExpenses:[],counts:[],countLines:[],periods:[],settings:[],warehouseMinimums:[],openingBatches:[],openingLines:[],accessRequests:[],users:[],audit:[],tenants:[]
 };
+// Minimum Stock policy UAT: existing TOTAL behavior stays default.
+assert.equal(ui.minimumStockPolicy(),'TOTAL','Minimum Stock defaults to TOTAL for backward compatibility');
+let lowRows=ui.lowStockRows();
+assert.equal(lowRows.length,1,'TOTAL policy detects product below total minimum');
+assert.equal(lowRows[0].product_id,'p1','TOTAL alert identifies the expected product');
+assert.equal(lowRows[0].scope,'TOTAL','TOTAL alert retains total scope');
+
+// BY_WAREHOUSE uses explicit override per warehouse and still falls back to Product default when blank.
+ui.state.data.settings=[{setting_key:'minimum_stock_policy',setting_value:'BY_WAREHOUSE'}];
+ui.state.data.warehouseMinimums=[
+  {product_id:'p1',warehouse_id:'w1',minimum_stock:8},
+  {product_id:'p1',warehouse_id:'w2',minimum_stock:3}
+];
+assert.equal(ui.minimumStockPolicy(),'BY_WAREHOUSE','BY_WAREHOUSE policy is selectable');
+assert.equal(ui.effectiveWarehouseMinimum('p1','w1'),8,'warehouse override replaces Product default');
+lowRows=ui.lowStockRows();
+assert.equal(lowRows.length,1,'BY_WAREHOUSE detects only the warehouse below its own minimum');
+assert.equal(lowRows[0].warehouse_id,'w2','zero/missing balance warehouse is checked independently');
+assert.equal(lowRows[0].minimum,3,'warehouse minimum is used for alert');
+
+// Explicit 0 disables minimum only for that product/warehouse.
+ui.state.data.warehouseMinimums=[
+  {product_id:'p1',warehouse_id:'w1',minimum_stock:8},
+  {product_id:'p1',warehouse_id:'w2',minimum_stock:0}
+];
+assert.equal(ui.lowStockRows().length,0,'explicit zero disables the warehouse minimum');
+
+// Blank/no override falls back to Product default.
+ui.state.data.warehouseMinimums=[{product_id:'p1',warehouse_id:'w1',minimum_stock:8}];
+lowRows=ui.lowStockRows();
+assert.equal(lowRows.length,1,'missing warehouse override falls back to Product default');
+assert.equal(lowRows[0].warehouse_id,'w2','fallback applies to the warehouse without override');
+assert.equal(lowRows[0].minimum,15,'fallback uses Product minimum_stock');
+
+ui.state.data.settings=[];
+ui.state.data.warehouseMinimums=[];
+
 ui.state.data.todayStatus={date:`${year}-09-23`,orders:1,invoices:5,revenue:963427.2,trips:2,completed_trips:2,future_completed_trips:2,waiting_logistics:0,late_trips:0,stockout_rows:0,low_contribution_invoices:1,contribution_threshold_pct:18.5};
 ui.state.data.reportKpis={finances:{low_contribution:1,contribution_threshold_pct:18.5}};
 ui.state.data.reportKpisKey=JSON.stringify({p_year:Number(year),p_month:null,p_warehouse_id:null,p_customer_id:null,p_product_id:null,p_vehicle_id:null});
