@@ -8,7 +8,7 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
   "Content-Type": "application/json",
 };
-const roles = new Set(["SALES", "WAREHOUSE", "LOGISTICS", "OWNER", "ADMIN"]);
+const roles = new Set(["SALES", "WAREHOUSE", "LOGISTICS", "WAREHOUSE_LOGISTICS", "OWNER", "ADMIN"]);
 const json = (status: number, body: unknown) => new Response(JSON.stringify(body), { status, headers: corsHeaders });
 
 Deno.serve(async (req) => {
