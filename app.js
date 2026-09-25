@@ -179,7 +179,23 @@ function showErrorHelp(message){
 function head(title,sub='',actions=''){const help='<button class="btn help-btn" type="button" data-action="pageHelp">? วิธีใช้</button>';return `<div class="page-head"><div><h1>${esc(title)}</h1><p>${esc(sub)}</p></div><div class="actions">${help}${actions}</div></div>`}
 function cards(items){return `<div class="cards">${items.map(x=>`<div class="card"><div class="label">${esc(x[0])}</div><div class="value">${x[1]}</div><div class="hint">${esc(x[2]||'')}</div></div>`).join('')}</div>`}
 function table(headers,rows,className='',numericCols=[]){if(!rows.length)return empty();const numeric=new Set(numericCols),sample=rows.find(Boolean)||'';[...sample.matchAll(/<td\b([^>]*)>/g)].forEach((m,i)=>{if(/\bnum\b/.test(m[1]))numeric.add(i)});const wide=headers.length>=6?' wide-table':'';return `<div class="table-wrap ${esc(className)}${wide}"><table><thead><tr>${headers.map((h,i)=>`<th class="sortable${numeric.has(i)?' num':''}" data-col="${i}">${h}</th>`).join('')}</tr></thead><tbody>${rows.join('')}</tbody></table></div>`}
-function wireSort(){ $$('#page th.sortable').forEach(th=>th.onclick=()=>{const body=th.closest('table').tBodies[0],i=+th.dataset.col,asc=th.dataset.asc!=='1';[...body.rows].sort((a,b)=>{const x=a.cells[i]?.dataset.sort??a.cells[i]?.innerText??'',y=b.cells[i]?.dataset.sort??b.cells[i]?.innerText??'';return (Number.isFinite(+x)&&Number.isFinite(+y)?+x-+y:String(x).localeCompare(String(y),'th'))*(asc?1:-1)}).forEach(r=>body.appendChild(r));th.dataset.asc=asc?'1':'0'})}
+function sortableValue(v){
+  const s=String(v??'').trim();
+  const dm=s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})(?:\s+(\d{1,2}):(\d{2})(?::(\d{2}))?)?$/);
+  if(dm){
+    const [,d,m,y,hh='0',mm='0',ss='0']=dm;
+    return {type:'date',value:Date.UTC(Number(y),Number(m)-1,Number(d),Number(hh),Number(mm),Number(ss))};
+  }
+  const iso=s.match(/^(\d{4})-(\d{2})-(\d{2})(?:[T\s](\d{2}):(\d{2})(?::(\d{2}))?)?/);
+  if(iso){
+    const [,y,m,d,hh='0',mm='0',ss='0']=iso;
+    return {type:'date',value:Date.UTC(Number(y),Number(m)-1,Number(d),Number(hh),Number(mm),Number(ss))};
+  }
+  const numeric=s.replace(/,/g,'').replace(/^฿/,'');
+  if(numeric!==''&&Number.isFinite(Number(numeric)))return {type:'number',value:Number(numeric)};
+  return {type:'text',value:s};
+}
+function wireSort(){ $('#page th.sortable').forEach(th=>th.onclick=()=>{const body=th.closest('table').tBodies[0],i=+th.dataset.col,asc=th.dataset.asc!=='1';[...body.rows].sort((a,b)=>{const xv=sortableValue(a.cells[i]?.dataset.sort??a.cells[i]?.innerText??''),yv=sortableValue(b.cells[i]?.dataset.sort??b.cells[i]?.innerText??'');let cmp;if(xv.type===yv.type&&(xv.type==='date'||xv.type==='number'))cmp=xv.value-yv.value;else cmp=String(xv.value).localeCompare(String(yv.value),'th',{numeric:true,sensitivity:'base'});return cmp*(asc?1:-1)}).forEach(r=>body.appendChild(r));$('th',th.closest('table')).forEach(h=>{if(h!==th)delete h.dataset.asc});th.dataset.asc=asc?'1':'0'})}
 
 async function init(){
   bindShell();
