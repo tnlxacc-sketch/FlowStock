@@ -126,3 +126,7 @@ assert(app.includes('warehouseMinimumDirectFile'),'Direct warehouse minimum CSV 
 assert(app.includes('previewWarehouseMinimumSettingsUpload'),'Direct warehouse minimum CSV preview action missing');
 assert(app.includes('commitWarehouseMinimumSettingsUpload'),'Direct warehouse minimum CSV replace action missing');
 assert(app.includes('โหลด CSV Minimum แยกคลังได้ตรงนี้เลย'),'Direct upload guidance missing from System Setup');
+
+assert(app.includes('ยังไม่มีค่า Minimum ให้นำเข้า'),'Empty Minimum CSV warning missing');
+assert(app.includes('ยังไม่ได้ตั้ง Minimum Stock รายคลัง'),'Stock page missing warehouse-minimum setup warning');
+assert(app.includes('Product Master ก็เป็น 0 จึงแสดง Minimum เป็น “-”'),'Stock page should explain blank Minimum display');
