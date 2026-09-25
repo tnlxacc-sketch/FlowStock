@@ -250,3 +250,22 @@ linear-gradient(135deg,#f8fbfd 0%,#eef6f6 52%,#f8fafc 100%)}
 .dr-status-card span{display:block;margin-top:5px;color:#8290a2;font-size:11px}
 .dr-status-card .positive{color:#0c816c}.dr-status-card .negative{color:#b13a31}
 @media(max-width:820px){.dr-status-cards{grid-template-columns:1fr}}
+
+
+/* =========================================================
+   FlowBiz One In-App Help v1.15.6
+   ========================================================= */
+.help-btn{border-color:#cfe3df!important;background:#f6fbfa!important;color:#0a756c!important}
+.help-modal{max-width:720px}
+.help-modal-head small{display:block;font-size:11px;letter-spacing:.08em;color:#0b8076;font-weight:850;margin-bottom:6px}
+.help-modal-head h2{margin:0 0 4px;color:#17344f}
+.help-modal-head p{margin:0;color:#728298}
+.help-steps{display:grid;gap:10px;margin:16px 0}
+.help-step{display:grid;grid-template-columns:34px 1fr;gap:10px;align-items:start;padding:11px 12px;border:1px solid #e2e9ee;border-radius:11px;background:#fbfdfe}
+.help-step b{width:28px;height:28px;border-radius:50%;display:grid;place-items:center;background:#e8f6f4;color:#08766d;font-size:13px}
+.help-step span{padding-top:3px;line-height:1.5;color:#29445e}
+.welcome-guide{max-width:760px}
+@media(max-width:760px){
+  .help-btn{padding:8px 10px!important}
+  .help-modal{max-width:none}
+}
