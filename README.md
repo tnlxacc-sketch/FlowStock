@@ -35,16 +35,15 @@ role checks, request idempotency, and audit logging.
   quantity, product detail, vehicle/driver context, and allocation-safe CSV.
 - Delivery Performance summarizes products, trips, received quantity, linked
   sales, freight, transport vendors, on-time delivery, and trip detail.
-- Demo admins can atomically import historical Sales Orders, Order Lines, and
-  Invoices for presentations without changing current stock balances.
+- Demo admins can atomically import historical Goods Receipts, Sales Orders, Order Lines, and
+  Invoices for presentations; the import simulates chronological Stock IN/OUT and blocks any sequence that would make stock negative.
 - Year-end rollover requires a verified full database and POD backup before
   transactional cleanup; it preserves master data, users, audit history, and
   carries remaining stock into the new year.
 
 Invoice KPIs and customer summaries are calculated in Postgres; Invoice detail
 is loaded 50 rows at a time. Operational screens show a recent window and their
-CSV downloads are partial. The current build has not been benchmarked with
-500,000 annual sales records.
+CSV downloads are partial. A synthetic 500,000-row PostgreSQL aggregation check has been completed, but this is not a substitute for customer-like end-to-end load testing.
 
 Operational handoff: [`docs/COMMERCIAL_RUNBOOK.md`](docs/COMMERCIAL_RUNBOOK.md)
 UAT checklist: [`docs/UAT_CHECKLIST.md`](docs/UAT_CHECKLIST.md)
@@ -55,9 +54,9 @@ Live site: https://tnlxacc-sketch.github.io/FlowStock/
 
 ## Commercial release status
 
-Commercial baseline: **v1.15.2 — COMMERCIAL PILOT READY / DR-GATED PRODUCTION**
+Commercial baseline: **v1.17.0 — UAT-GATED COMMERCIAL PILOT / DR-GATED PRODUCTION**
 
-This build is approved for a controlled first-customer paid pilot and UAT. It must not be marketed as proven for 500,000 annual sales records until the benchmark is completed. See [Commercial Closeout](docs/COMMERCIAL_RELEASE_1_14_2.md).
+This build uses automated UI/regression checks as a deployment gate and is suitable for controlled commercial pilot/UAT after the customer-specific backup/restore gate is verified. The synthetic 500,000-row database check must not be represented as proof of full end-to-end application capacity. See [Commercial Closeout](docs/COMMERCIAL_RELEASE_1_14_2.md).
 
 
 ## v1.14.3 additions
