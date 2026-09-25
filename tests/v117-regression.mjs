@@ -121,3 +121,8 @@ assert(app.includes('อัปโหลดทับค่ารายคลั�
 assert(app.includes('normalizeWarehouseMinimumImport'),'Warehouse Minimum CSV validation missing');
 assert(app.includes("accept=\".csv,text/csv\""),'Warehouse Minimum upload must accept CSV');
 assert(app.includes('ค่า Default ใน Product Master จะไม่ถูกแก้'),'Replace upload must preserve Product default guidance');
+
+assert(app.includes('warehouseMinimumDirectFile'),'Direct warehouse minimum CSV file input missing');
+assert(app.includes('previewWarehouseMinimumSettingsUpload'),'Direct warehouse minimum CSV preview action missing');
+assert(app.includes('commitWarehouseMinimumSettingsUpload'),'Direct warehouse minimum CSV replace action missing');
+assert(app.includes('โหลด CSV Minimum แยกคลังได้ตรงนี้เลย'),'Direct upload guidance missing from System Setup');
