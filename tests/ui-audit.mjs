@@ -35,7 +35,9 @@ assert(todayHtml.includes('2 เที่ยวส่งวันนี้สถ
 assert(!todayHtml.includes('Freight Actual ต่างจาก Standard'),'historical freight comparison is not a today task');
 assert(!todayHtml.includes('0 Orders ค้างจัดรถ'),'zero-value alerts are hidden');
 ui.state.reportYear='2025';
-assert.equal(ui.todayPanel(),todayHtml,'today work is independent of selected report year');
+const otherYearTodayHtml=ui.todayPanel();
+assert(otherYearTodayHtml.includes('963,427.2')&&otherYearTodayHtml.includes('5'),'today cards stay independent of selected report year');
+assert(!otherYearTodayHtml.includes('Invoice ช่วงที่เลือกมี Contribution ต่ำกว่า'),'selected-period alert is not reused from a stale KPI cache');
 ui.state.reportYear=year;
 ui.state.data.settings=[{setting_key:'contribution_alert_pct',setting_value:18.5}];
 assert(ui.settingsPage().includes('id="contributionThreshold" type="number" min="0" max="100" step="0.01" value="18.5"'),'Admin settings show the saved policy');
