@@ -659,7 +659,7 @@ function stockAdjustmentPage(){
     const net=ls.reduce((sum,l)=>sum+Number(l.adjustment_qty||0),0);
     let action='<button class="btn small-btn" data-action="viewAdjustment" data-id="'+a.id+'">เปิด</button>';
     if(a.status==='SUBMITTED'&&can('ADMIN'))action='<button class="btn primary small-btn" data-action="postAdjustment" data-id="'+a.id+'">Post</button> '+action;
-    return '<tr><td><b>'+esc(a.adjustment_no)+'</b></td><td>'+dmy(a.adjustment_date)+'</td><td>'+esc(warehouse(a.warehouse_id).code||'-')+'</td><td>'+esc(a.reason||'-')+'</td><td class="num '+(net<0?'negative':net>0?'positive':'')+'">'+(net>0?'+':'')+qty(net)+'</td><td>'+badge(a.status)+'</td><td class="action-cell">'+action+'</td></tr>';
+    const statusLabel=a.status==='SUBMITTED'?'<span class="badge warn">รอ Admin Post</span>':a.status==='POSTED'?'<span class="badge ok">Post แล้ว</span>':a.status==='REVERSED'?'<span class="badge danger">Reverse แล้ว</span>':badge(a.status);return '<tr><td><b>'+esc(a.adjustment_no)+'</b></td><td>'+dmy(a.adjustment_date)+'</td><td>'+esc(warehouse(a.warehouse_id).code||'-')+'</td><td>'+esc(a.reason||'-')+'</td><td class="num '+(net<0?'negative':net>0?'positive':'')+'">'+(net>0?'+':'')+qty(net)+'</td><td>'+statusLabel+'</td><td class="action-cell">'+action+'</td></tr>';
   });
   const initialLines=(prefillLines.length?prefillLines:[{}]).map(adjustmentLineHtml).join('');
   const whOptions=(state.data.warehouses||[]).map(w=>'<option value="'+w.id+'" '+(w.id===defaultWh?'selected':'')+'>'+esc(w.code)+' • '+esc(w.name)+'</option>').join('');
@@ -718,8 +718,8 @@ function wireStockAdjustmentPage(){
     if(lines.some(x=>!x.reason))return toast('กรอกเหตุผลของทุกรายการ',true);
     for(const x of lines.filter(x=>x.adjustment_qty<0)){
       const b=(state.data.balances||[]).find(v=>v.product_id===x.product_id&&v.warehouse_id===wid());
-      const onHand=Number(b?.on_hand||0);
-      if(onHand+x.adjustment_qty<0)return toast('ลด Stock '+(product(x.product_id).code||'')+' เกิน On Hand ปัจจุบัน',true);
+      const onHand=Number(b?.on_hand||0),allocated=Number(b?.allocated||0),available=onHand-allocated;
+      if(Math.abs(x.adjustment_qty)>available)return toast('ลด Stock '+(product(x.product_id).code||'')+' เกิน Available ปัจจุบัน '+qty(available),true);
     }
     setLoading(true);
     try{
