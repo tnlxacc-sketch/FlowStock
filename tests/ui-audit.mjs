@@ -27,8 +27,8 @@ ui.state.data.todayStatus={date:`${year}-09-23`,orders:1,invoices:5,revenue:9634
 const todayHtml=ui.todayPanel();
 assert(todayHtml.includes('963,427.2'),"today sales comes from today's invoices");
 assert(todayHtml.includes('5'),'today invoice count is shown');
-assert(todayHtml.includes('1 Invoice วันนี้มี Contribution ต่ำกว่า 18.5%'),'low margin warning uses company policy');
-assert(todayHtml.includes('data-action="openLowContribution"'),'warning opens filtered invoice list');
+assert(todayHtml.includes('1 Invoice ช่วงที่เลือกมี Contribution ต่ำกว่า 18.5%'),'low margin warning uses company policy and selected reporting period');
+assert(todayHtml.includes('data-action="openLowContributionPeriod"'),'warning opens filtered invoice list for the selected period');
 assert(todayHtml.includes('2 เที่ยวส่งวันนี้สถานะปิดงาน แต่เวลาเสร็จอยู่ในอนาคต'),'future completion timestamps are visible');
 assert(!todayHtml.includes('Freight Actual ต่างจาก Standard'),'historical freight comparison is not a today task');
 assert(!todayHtml.includes('0 Orders ค้างจัดรถ'),'zero-value alerts are hidden');
