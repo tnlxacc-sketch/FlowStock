@@ -136,3 +136,23 @@ Record tester, date, company, role, expected result, actual result, and evidence
 11. Stock Movement must show Opening / IN / OUT / Balance in chronological order.
 12. Company-level Minimum Stock alert must match Ending Stock after all historical movements.
 13. UAT rollback test passed: Opening 1,000 + GR 500 − Sales Issue 600 = Ending 900 with 3 historical movement rows and correct dates/references.
+
+
+## v1.16.0 Stock Conversion / Repack UAT
+
+1. WAREHOUSE and ADMIN can create a Repack / Stock Conversion batch.
+2. SALES / LOGISTICS / OWNER cannot post Conversion.
+3. One batch supports multiple From Product → To Product lines in one warehouse.
+4. Each line requires Qty Out > 0 and Qty In > 0 and From ≠ To.
+5. Source Available Stock is checked in UI and again in the database transaction.
+6. Posting creates exactly one CONVERSION_OUT and one CONVERSION_IN movement per line under the same CV reference.
+7. Conversion movement uses the selected business date.
+8. Source stock can never become negative.
+9. Conversion does not change Order / Delivery / Invoice / Revenue / Product Cost / GP / Contribution calculations.
+10. Reverse requires a reason and creates reversal movements; original movements remain in Audit history.
+11. Reverse is blocked if target stock is no longer sufficient.
+12. Product / Warehouse referenced by Conversion is protected from physical Master deletion.
+13. Demo Transaction Reset / All Business Data Reset clears Conversion records before clearing Master data.
+14. Year-end rollover clears Conversion transaction history only after verified backup, then carries ending Stock to the new year.
+15. Stock Movement filter includes Conversion OUT / IN / Reverse OUT / Reverse IN.
+16. Login startup uses sequential query batches for stability; verify login and navigation through Dashboard / Warehouse / Stock after deployment.
