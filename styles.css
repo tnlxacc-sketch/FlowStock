@@ -269,3 +269,32 @@ linear-gradient(135deg,#f8fbfd 0%,#eef6f6 52%,#f8fafc 100%)}
   .help-btn{padding:8px 10px!important}
   .help-modal{max-width:none}
 }
+
+
+/* FlowBiz One Repack / Transfer UX v1.16.1 */
+.repack-entry-panel{overflow:visible}
+.repack-header-grid{display:grid;grid-template-columns:1fr 1.4fr 1.3fr 1.6fr;gap:14px;margin-bottom:16px}
+.repack-header-grid label,.repack-field{display:flex;flex-direction:column;gap:7px;font-weight:700;color:#10233f}
+.repack-header-grid input,.repack-header-grid select,.repack-field input,.repack-field select{width:100%;min-height:44px;font-size:16px}
+.repack-rule{margin:6px 0 16px;padding:12px 14px;border-radius:12px;background:#f5f9ff;border:1px solid #d9e7f7;color:#294568;line-height:1.55}
+#repackLines{display:flex;flex-direction:column;gap:10px}
+.repack-line{display:grid;grid-template-columns:minmax(220px,1.45fr) 34px minmax(220px,1.45fr) minmax(145px,.8fr) minmax(220px,1.2fr) auto;gap:10px;align-items:end;padding:14px;border:1px solid #dfe8f1;border-radius:14px;background:#fff}
+.repack-arrow{align-self:center;text-align:center;font-size:24px;font-weight:800;color:#40688d;padding-top:10px}
+.repack-field small{min-height:18px;font-weight:500}
+.repack-actions{justify-content:space-between;margin-top:16px}
+.repack-entry-panel .searchable-select{width:100%}
+.repack-entry-panel .searchable-select-input{min-height:44px;font-size:16px}
+.repack-entry-panel .searchable-select-list{min-width:300px;max-height:300px;z-index:50}
+.conversion-table td{vertical-align:top}
+@media(max-width:1100px){
+  .repack-header-grid{grid-template-columns:1fr 1fr}
+  .repack-line{grid-template-columns:1fr 34px 1fr}
+  .repack-qty-field,.repack-note-field{grid-column:auto}
+  .repack-line>.remove-repack-line{justify-self:start}
+}
+@media(max-width:720px){
+  .repack-header-grid{grid-template-columns:1fr}
+  .repack-line{grid-template-columns:1fr}
+  .repack-arrow{transform:rotate(90deg);padding:0}
+  .repack-actions{flex-direction:column}
+}
