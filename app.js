@@ -682,17 +682,135 @@ const masterImportDefs={
 let pendingMasterImport=null;
 function parseCsv(text){const rows=[];let row=[],cell='',quoted=false;for(let i=0;i<text.length;i++){const c=text[i],n=text[i+1];if(c==='"'&&quoted&&n==='"'){cell+='"';i++}else if(c==='"')quoted=!quoted;else if(c===','&&!quoted){row.push(cell.trim());cell=''}else if((c==='\n'||c==='\r')&&!quoted){if(c==='\r'&&n==='\n')i++;row.push(cell.trim());if(row.some(Boolean))rows.push(row);row=[];cell=''}else cell+=c}row.push(cell.trim());if(row.some(Boolean))rows.push(row);return rows}
 const csvBool=v=>!['FALSE','0','NO','N','ปิด'].includes(String(v||'TRUE').trim().toUpperCase());
-const salesImportDefs={orders:['order_no','order_date','customer_code','requested_delivery_at','status','warehouse_code','vehicle_code','driver_code','standard_freight','invoice_no'],lines:['order_no','line_no','product_code','warehouse_code','qty','unit_price','line_amount','customer_received_qty'],invoices:['invoice_no','month','invoice_date','order_no','customer_code','revenue','product_cost','gross_profit','gp_margin','freight_cost','direct_expense','contribution_profit','contribution_margin','gp_status']};
+const salesImportDefs={
+  receipts:['gr_no','receipt_date','supplier_code','warehouse_code','source_doc_no','product_code','qty','unit_cost'],
+  orders:['order_no','order_date','customer_code','requested_delivery_at','status','warehouse_code','vehicle_code','driver_code','standard_freight','invoice_no'],
+  lines:['order_no','line_no','product_code','warehouse_code','qty','unit_price','line_amount','customer_received_qty'],
+  invoices:['invoice_no','month','invoice_date','order_no','customer_code','revenue','product_cost','gross_profit','gp_margin','freight_cost','direct_expense','contribution_profit','contribution_margin','gp_status']
+};
 let pendingSalesHistory=null;
-function salesHistoryImportModal(){pendingSalesHistory=null;modal(`<h2>นำเข้ายอดขายย้อนหลัง / Demo</h2><div class="alert warn"><b>ใช้สำหรับบริษัท Demo เท่านั้น</b> เลือก CSV 3 ไฟล์จากชุดตัวอย่าง ระบบจะตรวจ Master, ความสัมพันธ์ Order–Invoice และยอดเงินก่อนบันทึกแบบทั้งชุด<br>ข้อมูลย้อนหลังใช้สำหรับรายงานและพรีเซ็น โดย <b>ไม่ตัด Stock ปัจจุบัน</b></div><div class="form"><label class="full">1. Sales Orders<input id="salesOrdersFile" type="file" accept=".csv,text/csv" required></label><label class="full">2. Sales Order Lines<input id="salesLinesFile" type="file" accept=".csv,text/csv" required></label><label class="full">3. Sales Invoices<input id="salesInvoicesFile" type="file" accept=".csv,text/csv" required></label></div><div class="actions" style="margin:14px 0"><button id="previewSalesHistory" class="btn" type="button">ตรวจสอบไฟล์</button><button id="commitSalesHistory" class="btn primary" type="button" disabled>ยืนยันนำเข้า</button></div><div id="salesHistoryPreview">${empty('ยังไม่ได้ตรวจสอบไฟล์')}</div>`);$('#previewSalesHistory').onclick=previewSalesHistory;$('#commitSalesHistory').onclick=commitSalesHistory}
-function salesCsvObjects(text,kind,errors){const raw=parseCsv(text),headers=raw[0]?.map(x=>x.replace(/^\ufeff/,'').trim())||[],required=salesImportDefs[kind];if(required.some(h=>!headers.includes(h))){errors.push(`${kind}: Header ต้องมี ${required.join(', ')}`);return[]}return raw.slice(1).map((values,index)=>Object.assign({__row:index+2},Object.fromEntries(headers.map((h,i)=>[h,values[i]?.trim()||'']))))}
-async function previewSalesHistory(){const files=[$('#salesOrdersFile').files[0],$('#salesLinesFile').files[0],$('#salesInvoicesFile').files[0]];if(files.some(x=>!x))return toast('กรุณาเลือกไฟล์ Orders, Order Lines และ Invoices ให้ครบ',true);if(files.some(x=>x.size>8*1024*1024))return toast('แต่ละไฟล์ต้องไม่เกิน 8 MB',true);const errors=[],texts=await Promise.all(files.map(x=>x.text())),orders=salesCsvObjects(texts[0],'orders',errors),lines=salesCsvObjects(texts[1],'lines',errors),invoices=salesCsvObjects(texts[2],'invoices',errors),orderMap=new Map(),invoiceMap=new Map(),lineKeys=new Set(),customerCodes=new Set(state.data.customers.map(x=>x.code)),productCodes=new Set(state.data.products.map(x=>x.code)),warehouseCodes=new Set(state.data.warehouses.map(x=>x.code)),vehicleCodes=new Set(state.data.vehicles.map(x=>x.code)),driverCodes=new Set(state.data.drivers.map(x=>x.code));
-  orders.forEach(x=>{if(!x.order_no||orderMap.has(x.order_no))errors.push(`Orders แถว ${x.__row}: Order ซ้ำหรือว่าง`);else orderMap.set(x.order_no,x);if(!/^\d{4}-\d{2}-\d{2}$/.test(x.order_date))errors.push(`Orders แถว ${x.__row}: วันที่ไม่ถูกต้อง`);if(!customerCodes.has(x.customer_code))errors.push(`Orders แถว ${x.__row}: ไม่พบลูกค้า ${x.customer_code}`);if(!vehicleCodes.has(x.vehicle_code))errors.push(`Orders แถว ${x.__row}: ไม่พบรถ ${x.vehicle_code}`);if(!driverCodes.has(x.driver_code))errors.push(`Orders แถว ${x.__row}: ไม่พบคนขับ ${x.driver_code}`);if(Number(x.standard_freight)<0||!Number.isFinite(Number(x.standard_freight)))errors.push(`Orders แถว ${x.__row}: Freight ไม่ถูกต้อง`)});
-  lines.forEach(x=>{const key=`${x.order_no}|${x.line_no}`,q=Number(x.qty),price=Number(x.unit_price),amount=Number(x.line_amount),received=Number(x.customer_received_qty);if(!orderMap.has(x.order_no))errors.push(`Lines แถว ${x.__row}: ไม่พบ Order ${x.order_no}`);if(lineKeys.has(key))errors.push(`Lines แถว ${x.__row}: เลขบรรทัดซ้ำ`);lineKeys.add(key);if(!productCodes.has(x.product_code))errors.push(`Lines แถว ${x.__row}: ไม่พบสินค้า ${x.product_code}`);if(!warehouseCodes.has(x.warehouse_code))errors.push(`Lines แถว ${x.__row}: ไม่พบคลัง ${x.warehouse_code}`);if(!(q>0)||price<0||received<0||received>q)errors.push(`Lines แถว ${x.__row}: จำนวนหรือราคาไม่ถูกต้อง`);if(Math.abs(q*price-amount)>0.02)errors.push(`Lines แถว ${x.__row}: line_amount ไม่เท่ากับ qty × unit_price`)});
-  invoices.forEach(x=>{if(!x.invoice_no||invoiceMap.has(x.invoice_no))errors.push(`Invoices แถว ${x.__row}: Invoice ซ้ำหรือว่าง`);else invoiceMap.set(x.invoice_no,x);const o=orderMap.get(x.order_no),sum=lines.filter(l=>l.order_no===x.order_no).reduce((s,l)=>s+Number(l.line_amount||0),0);if(!o)errors.push(`Invoices แถว ${x.__row}: ไม่พบ Order ${x.order_no}`);else if(o.customer_code!==x.customer_code)errors.push(`Invoices แถว ${x.__row}: ลูกค้าไม่ตรงกับ Order`);if(!/^\d{4}-\d{2}-\d{2}$/.test(x.invoice_date))errors.push(`Invoices แถว ${x.__row}: วันที่ไม่ถูกต้อง`);if([x.revenue,x.product_cost,x.freight_cost,x.direct_expense].some(v=>Number(v)<0||!Number.isFinite(Number(v))))errors.push(`Invoices แถว ${x.__row}: ยอดเงินไม่ถูกต้อง`);if(Math.abs(sum-Number(x.revenue))>0.02)errors.push(`Invoices แถว ${x.__row}: Revenue ไม่ตรงกับผลรวม Lines`)});
-  orders.forEach(x=>{if(!lines.some(l=>l.order_no===x.order_no))errors.push(`Order ${x.order_no}: ไม่มีรายการสินค้า`);if(!invoices.some(i=>i.order_no===x.order_no))errors.push(`Order ${x.order_no}: ไม่มี Invoice`)});if(orders.length!==invoices.length)errors.push('จำนวน Orders และ Invoices ต้องเท่ากัน');
-  const strip=rows=>rows.map(({__row,...x})=>x);pendingSalesHistory={orders:strip(orders),lines:strip(lines),invoices:strip(invoices),errors,requestId:requestId('SALES-HISTORY')};const total=invoices.reduce((s,x)=>s+Number(x.revenue||0),0);$('#salesHistoryPreview').innerHTML=`<div class="alert ${errors.length?'danger':'ok'}">Orders ${orders.length} • Lines ${lines.length} • Invoices ${invoices.length} • ยอดขาย ${money(total)} • Error ${errors.length}</div>${errors.length?`<div class="alert danger import-errors">${errors.slice(0,30).map(esc).join('<br>')}${errors.length>30?`<br>และอีก ${errors.length-30} รายการ`:''}</div>`:table(['Invoice','เดือน','ลูกค้า','Revenue','Product Cost','Freight','Contribution'],invoices.slice(0,20).map(x=>`<tr><td><b>${esc(x.invoice_no)}</b></td><td>${esc(x.month)}</td><td>${esc(x.customer_code)}</td><td class="num">${money(x.revenue)}</td><td class="num">${money(x.product_cost)}</td><td class="num">${money(x.freight_cost)}</td><td class="num">${money(x.contribution_profit)}</td></tr>`),'sales-import-preview',[3,4,5,6])}`;$('#commitSalesHistory').disabled=errors.length>0||orders.length===0}
-async function commitSalesHistory(){if(!pendingSalesHistory||pendingSalesHistory.errors.length)return;setLoading(true);try{const {data,error}=await db.rpc('admin_import_sales_history',{p_orders:pendingSalesHistory.orders,p_lines:pendingSalesHistory.lines,p_invoices:pendingSalesHistory.invoices,p_request_id:pendingSalesHistory.requestId});if(error)throw error;toast(`นำเข้า ${data.orders} Orders / ${data.invoices} Invoices สำเร็จ`);closeModal();state.reportYear='2026';state.reportMonth='ALL';await loadData();state.page='profit';state.profitView='invoice';renderNav();render()}catch(e){fail(e)}finally{setLoading(false)}}
+function salesHistoryImportModal(){
+  pendingSalesHistory=null;
+  modal(`<h2>นำเข้าประวัติ Demo สมจริง</h2>
+  <div class="alert warn"><b>ใช้สำหรับบริษัท Demo ที่ล้างข้อมูลแล้วเท่านั้น</b><br>
+  ขั้นตอน: 1) ลง Master 2) ยก Opening Stock ตามวันที่เริ่มต้น 3) เลือก CSV 4 ไฟล์ด้านล่าง<br>
+  ระบบจะสร้าง <b>รับสินค้า (GR) → Stock IN → Order → Stock OUT → Delivery → Invoice</b> ตามวันที่ย้อนหลังจริง และตรวจว่า Stock ไม่ติดลบก่อนบันทึก</div>
+  <div class="form">
+    <label class="full">1. Historical Goods Receipts / Stock IN<input id="salesReceiptsFile" type="file" accept=".csv,text/csv" required></label>
+    <label class="full">2. Sales Orders<input id="salesOrdersFile" type="file" accept=".csv,text/csv" required></label>
+    <label class="full">3. Sales Order Lines / Stock OUT<input id="salesLinesFile" type="file" accept=".csv,text/csv" required></label>
+    <label class="full">4. Sales Invoices<input id="salesInvoicesFile" type="file" accept=".csv,text/csv" required></label>
+  </div>
+  <div class="actions" style="margin:14px 0">
+    <button id="previewSalesHistory" class="btn" type="button">ตรวจสอบไฟล์ + จำลอง Stock</button>
+    <button id="commitSalesHistory" class="btn primary" type="button" disabled>ยืนยันนำเข้าประวัติ</button>
+  </div><div id="salesHistoryPreview">${empty('ยังไม่ได้ตรวจสอบไฟล์')}</div>`);
+  $('#previewSalesHistory').onclick=previewSalesHistory;
+  $('#commitSalesHistory').onclick=commitSalesHistory;
+}
+function salesCsvObjects(text,kind,errors){
+  const raw=parseCsv(text),headers=raw[0]?.map(x=>x.replace(/^\ufeff/,'').trim())||[],required=salesImportDefs[kind];
+  if(required.some(h=>!headers.includes(h))){errors.push(`${kind}: Header ต้องมี ${required.join(', ')}`);return[]}
+  return raw.slice(1).map((values,index)=>Object.assign({__row:index+2},Object.fromEntries(headers.map((h,i)=>[h,values[i]?.trim()||'']))))
+}
+async function previewSalesHistory(){
+  const files=[$('#salesReceiptsFile').files[0],$('#salesOrdersFile').files[0],$('#salesLinesFile').files[0],$('#salesInvoicesFile').files[0]];
+  if(files.some(x=>!x))return toast('กรุณาเลือกไฟล์ Goods Receipts, Orders, Order Lines และ Invoices ให้ครบ',true);
+  if(files.some(x=>x.size>8*1024*1024))return toast('แต่ละไฟล์ต้องไม่เกิน 8 MB',true);
+
+  const errors=[],texts=await Promise.all(files.map(x=>x.text())),
+    receipts=salesCsvObjects(texts[0],'receipts',errors),
+    orders=salesCsvObjects(texts[1],'orders',errors),
+    lines=salesCsvObjects(texts[2],'lines',errors),
+    invoices=salesCsvObjects(texts[3],'invoices',errors),
+    orderMap=new Map(),invoiceMap=new Map(),lineKeys=new Set(),grKeys=new Set(),
+    customerCodes=new Set(state.data.customers.map(x=>x.code)),
+    productCodes=new Set(state.data.products.map(x=>x.code)),
+    warehouseCodes=new Set(state.data.warehouses.map(x=>x.code)),
+    supplierCodes=new Set(state.data.suppliers.map(x=>x.code)),
+    vehicleCodes=new Set(state.data.vehicles.map(x=>x.code)),
+    driverCodes=new Set(state.data.drivers.map(x=>x.code));
+
+  if((state.data.movements||[]).some(x=>x.movement_type!=='OPENING_BALANCE'))
+    errors.push('Stock ปัจจุบันมี Movement อื่นนอกจาก Opening Stock กรุณาล้างธุรกรรม Demo ก่อนนำเข้าชุดประวัติสมจริง');
+
+  receipts.forEach(x=>{
+    const q=Number(x.qty),cost=Number(x.unit_cost);
+    if(!x.gr_no||grKeys.has(x.gr_no))errors.push(`Receipts แถว ${x.__row}: GR ซ้ำหรือว่าง`);else grKeys.add(x.gr_no);
+    if(!/^\d{4}-\d{2}-\d{2}$/.test(x.receipt_date))errors.push(`Receipts แถว ${x.__row}: วันที่ไม่ถูกต้อง`);
+    if(!supplierCodes.has(x.supplier_code))errors.push(`Receipts แถว ${x.__row}: ไม่พบ Vendor ${x.supplier_code}`);
+    if(!warehouseCodes.has(x.warehouse_code))errors.push(`Receipts แถว ${x.__row}: ไม่พบคลัง ${x.warehouse_code}`);
+    if(!productCodes.has(x.product_code))errors.push(`Receipts แถว ${x.__row}: ไม่พบสินค้า ${x.product_code}`);
+    if(!(q>0)||cost<0||!Number.isFinite(q)||!Number.isFinite(cost))errors.push(`Receipts แถว ${x.__row}: จำนวนหรือต้นทุนไม่ถูกต้อง`);
+  });
+
+  orders.forEach(x=>{
+    if(!x.order_no||orderMap.has(x.order_no))errors.push(`Orders แถว ${x.__row}: Order ซ้ำหรือว่าง`);else orderMap.set(x.order_no,x);
+    if(!/^\d{4}-\d{2}-\d{2}$/.test(x.order_date))errors.push(`Orders แถว ${x.__row}: วันที่ไม่ถูกต้อง`);
+    if(!customerCodes.has(x.customer_code))errors.push(`Orders แถว ${x.__row}: ไม่พบลูกค้า ${x.customer_code}`);
+    if(!vehicleCodes.has(x.vehicle_code))errors.push(`Orders แถว ${x.__row}: ไม่พบรถ ${x.vehicle_code}`);
+    if(!driverCodes.has(x.driver_code))errors.push(`Orders แถว ${x.__row}: ไม่พบคนขับ ${x.driver_code}`);
+    if(Number(x.standard_freight)<0||!Number.isFinite(Number(x.standard_freight)))errors.push(`Orders แถว ${x.__row}: Freight ไม่ถูกต้อง`);
+  });
+
+  lines.forEach(x=>{
+    const key=`${x.order_no}|${x.line_no}`,q=Number(x.qty),price=Number(x.unit_price),amount=Number(x.line_amount),received=Number(x.customer_received_qty);
+    if(!orderMap.has(x.order_no))errors.push(`Lines แถว ${x.__row}: ไม่พบ Order ${x.order_no}`);
+    if(lineKeys.has(key))errors.push(`Lines แถว ${x.__row}: เลขบรรทัดซ้ำ`);lineKeys.add(key);
+    if(!productCodes.has(x.product_code))errors.push(`Lines แถว ${x.__row}: ไม่พบสินค้า ${x.product_code}`);
+    if(!warehouseCodes.has(x.warehouse_code))errors.push(`Lines แถว ${x.__row}: ไม่พบคลัง ${x.warehouse_code}`);
+    if(!(q>0)||price<0||received<0||received>q)errors.push(`Lines แถว ${x.__row}: จำนวนหรือราคาไม่ถูกต้อง`);
+    if(Math.abs(q*price-amount)>0.02)errors.push(`Lines แถว ${x.__row}: line_amount ไม่เท่ากับ qty × unit_price`);
+  });
+
+  invoices.forEach(x=>{
+    if(!x.invoice_no||invoiceMap.has(x.invoice_no))errors.push(`Invoices แถว ${x.__row}: Invoice ซ้ำหรือว่าง`);else invoiceMap.set(x.invoice_no,x);
+    const o=orderMap.get(x.order_no),sum=lines.filter(l=>l.order_no===x.order_no).reduce((a,l)=>a+Number(l.customer_received_qty||0)*Number(l.unit_price||0),0);
+    if(!o)errors.push(`Invoices แถว ${x.__row}: ไม่พบ Order ${x.order_no}`);
+    else if(o.customer_code!==x.customer_code)errors.push(`Invoices แถว ${x.__row}: ลูกค้าไม่ตรงกับ Order`);
+    if(!/^\d{4}-\d{2}-\d{2}$/.test(x.invoice_date))errors.push(`Invoices แถว ${x.__row}: วันที่ไม่ถูกต้อง`);
+    if([x.revenue,x.product_cost,x.freight_cost,x.direct_expense].some(v=>Number(v)<0||!Number.isFinite(Number(v))))errors.push(`Invoices แถว ${x.__row}: ยอดเงินไม่ถูกต้อง`);
+    if(Math.abs(sum-Number(x.revenue))>0.02)errors.push(`Invoices แถว ${x.__row}: Revenue ไม่ตรงกับ Customer Received × Unit Price`);
+  });
+
+  orders.forEach(x=>{if(!lines.some(l=>l.order_no===x.order_no))errors.push(`Order ${x.order_no}: ไม่มีรายการสินค้า`);if(!invoices.some(i=>i.order_no===x.order_no))errors.push(`Order ${x.order_no}: ไม่มี Invoice`)});
+  if(orders.length!==invoices.length)errors.push('จำนวน Orders และ Invoices ต้องเท่ากัน');
+
+  // Simulate historical stock by date using current Opening Stock balance as the starting point.
+  const sim=new Map((state.data.balances||[]).map(b=>[`${b.warehouse_id}|${b.product_id}`,Number(b.on_hand||0)]));
+  const wByCode=new Map(state.data.warehouses.map(x=>[x.code,x])),pByCode=new Map(state.data.products.map(x=>[x.code,x]));
+  const events=[];
+  receipts.forEach(x=>{const w=wByCode.get(x.warehouse_code),p=pByCode.get(x.product_code);if(w&&p)events.push({at:x.receipt_date+'T09:00:00+07:00',key:`${w.id}|${p.id}`,qty:Number(x.qty||0),ref:x.gr_no,type:'IN'})});
+  lines.forEach(x=>{const o=orderMap.get(x.order_no),w=wByCode.get(x.warehouse_code),p=pByCode.get(x.product_code);if(o&&w&&p)events.push({at:o.requested_delivery_at||o.order_date+'T09:00:00+07:00',key:`${w.id}|${p.id}`,qty:-Number(x.qty||0),ref:x.order_no,type:'OUT',product:p,warehouse:w})});
+  events.sort((a,b)=>String(a.at).localeCompare(String(b.at))||(a.type==='IN'?-1:1));
+  events.forEach(ev=>{const before=Number(sim.get(ev.key)||0),after=before+ev.qty;sim.set(ev.key,after);if(after<0)errors.push(`Stock ติดลบที่ ${ev.ref}: ${ev.product?.code||''} / ${ev.warehouse?.code||''} เหลือ ${qty(after)}`)});
+
+  const belowMin=[...sim.entries()].map(([key,on])=>{const [wid,pid]=key.split('|'),p=state.data.products.find(x=>x.id===pid),w=state.data.warehouses.find(x=>x.id===wid),min=Number(p?.minimum_stock||0);return{p,w,on,min}}).filter(x=>x.p&&x.min>0&&x.on<x.min);
+
+  const strip=rows=>rows.map(({__row,...x})=>x);
+  pendingSalesHistory={receipts:strip(receipts),orders:strip(orders),lines:strip(lines),invoices:strip(invoices),errors,requestId:requestId('SALES-HISTORY-REAL')};
+  const total=invoices.reduce((a,x)=>a+Number(x.revenue||0),0);
+  $('#salesHistoryPreview').innerHTML=`<div class="alert ${errors.length?'danger':'ok'}">GR ${receipts.length} • Orders ${orders.length} • Lines ${lines.length} • Invoices ${invoices.length} • ยอดขาย ${money(total)} • Stock ต่ำกว่า Min หลังจบงวด ${belowMin.length} สินค้า/คลัง • Error ${errors.length}</div>`+
+    (errors.length?`<div class="alert danger import-errors">${errors.slice(0,40).map(esc).join('<br>')}${errors.length>40?`<br>และอีก ${errors.length-40} รายการ`:''}</div>`:
+      table(['Invoice','เดือน','ลูกค้า','Revenue','Product Cost','Freight','Contribution'],invoices.slice(0,20).map(x=>`<tr><td><b>${esc(x.invoice_no)}</b></td><td>${esc(x.month)}</td><td>${esc(x.customer_code)}</td><td class="num">${money(x.revenue)}</td><td class="num">${money(x.product_cost)}</td><td class="num">${money(x.freight_cost)}</td><td class="num">${money(x.contribution_profit)}</td></tr>`),'sales-import-preview',[3,4,5,6]));
+  $('#commitSalesHistory').disabled=errors.length>0||orders.length===0;
+}
+async function commitSalesHistory(){
+  if(!pendingSalesHistory||pendingSalesHistory.errors.length)return;
+  setLoading(true);
+  try{
+    const {data,error}=await db.rpc('admin_import_sales_history',{
+      p_receipts:pendingSalesHistory.receipts,
+      p_orders:pendingSalesHistory.orders,
+      p_lines:pendingSalesHistory.lines,
+      p_invoices:pendingSalesHistory.invoices,
+      p_request_id:pendingSalesHistory.requestId
+    });
+    if(error)throw error;
+    toast(`นำเข้า GR ${data.receipts} / Orders ${data.orders} / Invoices ${data.invoices} พร้อม Stock Movement แล้ว`);
+    closeModal();state.reportYear='2026';state.reportMonth='ALL';await loadData();state.page='stock';renderNav();render();
+  }catch(e){fail(e)}finally{setLoading(false)}
+}
 function normalizeImport(kind,raw){const def=masterImportDefs[kind],errors=[],headers=raw[0]?.map(x=>x.replace(/^\ufeff/,'').trim())||[],requiredHeaders=kind==='products'?def.headers.filter(h=>h!=='minimum_stock'):def.headers;if(requiredHeaders.some(h=>!headers.includes(h)))return {rows:[],errors:[`Header ต้องมี: ${requiredHeaders.join(', ')}`]};const rows=raw.slice(1).map((values,index)=>{const src=Object.fromEntries(headers.map((h,i)=>[h,values[i]?.trim()||''])),line=index+2,out={company_id:state.profile.company_id,_preview:src};try{if(kind==='costs'){const p=state.data.products.find(x=>x.code===src.product_code);if(!p)throw new Error(`ไม่พบสินค้า ${src.product_code}`);if(!/^\d{4}-\d{2}$/.test(src.cost_month)||Number(src.unit_cost)<0)throw new Error('เดือนหรือต้นทุนไม่ถูกต้อง');Object.assign(out,{product_id:p.id,cost_month:src.cost_month+'-01',unit_cost:Number(src.unit_cost)})}else if(kind==='products'){const g=src.group_code?state.data.productGroups.find(x=>x.code===src.group_code):null;if(src.group_code&&!g)throw new Error(`ไม่พบกลุ่มสินค้า ${src.group_code}`);if(!src.code||!src.name||!src.base_uom)throw new Error('รหัส ชื่อ และหน่วยเป็นข้อมูลบังคับ');const minStock=src.minimum_stock===''||src.minimum_stock==null?0:Number(src.minimum_stock);if(!Number.isFinite(minStock)||minStock<0)throw new Error('Minimum Stock ต้องเป็น 0 หรือมากกว่า');Object.assign(out,{code:src.code,name:src.name,group_id:g?.id||null,base_uom:src.base_uom,minimum_stock:minStock,active:csvBool(src.active)})}else if(kind==='vehicles'){const vt=state.data.vehicleTypes.find(x=>x.code===src.vehicle_type&&x.active!==false);if(!vt)throw new Error(`ไม่พบประเภทรถ ${src.vehicle_type} ใน Vehicle Type Master`);if(!src.code||!src.plate_no)throw new Error('รหัสและทะเบียนรถเป็นข้อมูลบังคับ');Object.assign(out,{code:src.code,plate_no:src.plate_no,vehicle_type:vt.code,active:csvBool(src.active)})}else if(kind==='expenseTypes'){if(!src.code||!src.name||!expenseCategoryThai[src.category]||!expenseBasisThai[src.basis])throw new Error('รหัส ชื่อ ประเภท หรือฐานคำนวณไม่ถูกต้อง');Object.assign(out,{code:src.code,name:src.name,category:src.category,basis:src.basis,include_in_contribution:csvBool(src.include_in_contribution),active:csvBool(src.active)})}else if(kind==='expenseRates'){const t=state.data.expenseTypes.find(x=>x.code===src.expense_code),w=src.warehouse_code?state.data.warehouses.find(x=>x.code===src.warehouse_code):null,vt=src.vehicle_type?state.data.vehicleTypes.find(x=>x.code===src.vehicle_type&&x.active!==false):null;if(!t)throw new Error(`ไม่พบประเภทค่าใช้จ่าย ${src.expense_code}`);if(src.warehouse_code&&!w)throw new Error(`ไม่พบคลัง ${src.warehouse_code}`);if(src.vehicle_type&&!vt)throw new Error(`ไม่พบประเภทรถ ${src.vehicle_type} ใน Vehicle Type Master`);if(!src.effective_from||Number(src.rate)<0)throw new Error('วันที่เริ่มใช้หรืออัตราไม่ถูกต้อง');Object.assign(out,{expense_type_id:t.id,effective_from:src.effective_from,effective_to:src.effective_to||null,rate:Number(src.rate),warehouse_id:w?.id||null,vehicle_type:vt?.code||null,sales_type:null})}else{if(!src.code||!src.name)throw new Error('รหัสและชื่อเป็นข้อมูลบังคับ');def.headers.forEach(h=>{if(h==='active')out.active=csvBool(src[h]);else if(src[h]!==''||['code','name'].includes(h))out[h]=src[h]})}}catch(e){errors.push(`แถว ${line}: ${e.message}`);return null}return out}).filter(Boolean);return {rows,errors}}
 function masterImportModal(){const options=Object.entries(masterImportDefs).map(([k,v])=>`<option value="${k}">${v.label}</option>`).join('');modal(`<h2>Master Import Center</h2><div class="alert warn">1) เลือก Master 2) ดาวน์โหลด CSV Template 3) กรอกข้อมูล 4) เลือกไฟล์เพื่อ Preview 5) ยืนยันนำเข้า</div><div class="form"><label>ประเภท Master<select id="importKind">${options}</select></label><label>ไฟล์ CSV UTF-8<input id="importFile" type="file" accept=".csv,text/csv"></label></div><div class="actions" style="margin:14px 0"><button type="button" id="downloadTemplate" class="btn">⇩ Download Template</button><button type="button" id="previewImport" class="btn">ตรวจสอบไฟล์</button><button type="button" id="commitImport" class="btn primary" disabled>นำเข้าข้อมูล</button></div><div id="importPreview">${empty('ยังไม่ได้เลือกไฟล์')}</div>`);$('#downloadTemplate').onclick=()=>{const d=masterImportDefs[$('#importKind').value];downloadCsv(`FlowStock_${d.label.replaceAll(' ','_')}_Template.csv`,d.headers,d.sample)};$('#previewImport').onclick=previewMasterImport;$('#commitImport').onclick=commitMasterImport}
 async function previewMasterImport(){const file=$('#importFile').files[0];if(!file)return toast('กรุณาเลือกไฟล์ CSV',true);const kind=$('#importKind').value,result=normalizeImport(kind,parseCsv(await file.text()));pendingMasterImport={kind,...result};const sample=result.rows.slice(0,20),headers=masterImportDefs[kind].headers;$('#importPreview').innerHTML=`<div class="alert ${result.errors.length?'danger':'ok'}">ผ่าน ${result.rows.length} แถว • Error ${result.errors.length} แถว</div>${result.errors.length?`<div class="alert danger">${result.errors.map(esc).join('<br>')}</div>`:''}${sample.length?table(headers,sample.map(r=>`<tr>${headers.map(h=>`<td>${esc(r._preview?.[h]??r[h]??'-')}</td>`).join('')}</tr>`)):empty()}`;$('#commitImport').disabled=result.errors.length>0||result.rows.length===0}
