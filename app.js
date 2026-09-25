@@ -572,10 +572,59 @@ function stockPage(){
 }
 function countVariance(c){return state.data.countLines.filter(x=>x.count_id===c.id).reduce((s,x)=>s+(x.count_qty==null?0:Number(x.count_qty)-Number(x.book_qty||0)),0)}
 function countsPage(){
-  const owner=can('OWNER'),counts=(state.data.counts||[]).filter(c=>(state.reportWarehouse==='ALL'||c.warehouse_id===state.reportWarehouse)&&(state.countPeriod==='ALL'||String(c.snapshot_at||'').slice(0,7)===state.countPeriod)),allLines=counts.flatMap(c=>state.data.countLines.filter(x=>x.count_id===c.id)),countedLines=allLines.filter(x=>x.count_qty!=null),shortage=countedLines.filter(x=>Number(x.count_qty)<Number(x.book_qty||0)).length,excess=countedLines.filter(x=>Number(x.count_qty)>Number(x.book_qty||0)).length,netVariance=countedLines.reduce((s,x)=>s+Number(x.count_qty)-Number(x.book_qty||0),0);
-  const rows=counts.map(c=>{const ls=state.data.countLines.filter(x=>x.count_id===c.id),complete=ls.length>0&&ls.every(x=>x.count_qty!=null),book=ls.reduce((s,x)=>s+Number(x.book_qty||0),0),actual=complete?ls.reduce((s,x)=>s+Number(x.count_qty||0),0):null,variance=complete?actual-book:null,action=owner?`<button class="btn small-btn" data-action="openCount" data-id="${c.id}">ดูผล</button>`:c.status==='DRAFT'?`<button class="btn small-btn" data-action="openCount" data-id="${c.id}">ทำต่อ</button>`:c.status==='SUBMITTED'&&can('ADMIN')?`<button class="btn primary small-btn" data-action="finalizeCount" data-id="${c.id}">Admin Final</button> <button class="btn small-btn" data-action="openCount" data-id="${c.id}">ดูผล</button>`:`<button class="btn small-btn" data-action="openCount" data-id="${c.id}">ดูผล</button>`;return `<tr><td><b>${esc(c.count_no)}</b></td><td><b>${esc(warehouse(c.warehouse_id).code||'-')}</b></td><td>${dmy(c.snapshot_at)}</td><td class="num" data-sort="${book}">${qty(book)}</td><td class="num" data-sort="${actual==null?'':actual}">${actual==null?'<span class="muted">ยังไม่ครบ</span>':qty(actual)}</td><td class="num ${variance<0?'negative':variance>0?'positive':''}" data-sort="${variance==null?'':variance}">${variance==null?'-':`${variance>0?'+':''}${qty(variance)}`}</td><td>${badge(c.status)}</td><td class="action-cell">${action}</td></tr>`});
-  const filter=analyticsFilters({year:false,warehouse:true})+countPeriodFilter(),actionsHtml=owner?filter:`${filter}<button class="btn primary" data-action="newCount">+ เริ่มรอบตรวจนับ</button>`,title=owner?'ผลตรวจนับ Stock':'ตรวจนับ Stock',sub=owner?'อ่านผล Book เทียบยอดตรวจจริงและส่วนต่างได้ทุกคลัง/ทุกรอบเดือน':'Snapshot → นับหลายกอง → Submit → Admin Final Adjustment';
-  return head(title,sub,actionsHtml)+(owner?cards([['รอบตรวจ',nf.format(counts.length),'รายการ'],['นับแล้ว',nf.format(countedLines.length),`จาก ${nf.format(allLines.length)} SKU`],['ขาด',nf.format(shortage),'SKU'],['เกิน',nf.format(excess),'SKU'],['ส่วนต่างสุทธิ',`${netVariance>0?'+':''}${qty(netVariance)}`,'จำนวน']]):'<div class="alert warn">การบันทึกยอดตรวจยังไม่เปลี่ยน Stock ทันที ยอดจะเปลี่ยนเมื่อ Admin กด Final Adjustment เท่านั้น</div>')+`<div class="panel"><div class="section-title"><h3>${owner?'ผลตรวจนับล่าสุด':'รายการรอบตรวจนับ'}</h3><span class="muted">กดหัวคอลัมน์เพื่อเรียงข้อมูล</span></div>${table(['Count No.','คลัง','Snapshot','Book Qty','ยอดตรวจจริง','ส่วนต่าง','สถานะ','ดำเนินการ'],rows,'count-result-table')}</div>`;
+  const owner=can('OWNER');
+  const counts=(state.data.counts||[]).filter(c=>{
+    const whOk=state.reportWarehouse==='ALL'||c.warehouse_id===state.reportWarehouse;
+    const periodOk=state.countPeriod==='ALL'||String(c.snapshot_at||'').slice(0,7)===state.countPeriod;
+    return whOk&&periodOk;
+  });
+  const allLines=counts.flatMap(c=>state.data.countLines.filter(x=>x.count_id===c.id));
+  const countedLines=allLines.filter(x=>x.count_qty!=null);
+  const shortage=countedLines.filter(x=>Number(x.count_qty)<Number(x.book_qty||0)).length;
+  const excess=countedLines.filter(x=>Number(x.count_qty)>Number(x.book_qty||0)).length;
+  const netVariance=countedLines.reduce((sum,x)=>sum+Number(x.count_qty)-Number(x.book_qty||0),0);
+  const rows=counts.map(c=>{
+    const ls=state.data.countLines.filter(x=>x.count_id===c.id);
+    const complete=ls.length>0&&ls.every(x=>x.count_qty!=null);
+    const book=ls.reduce((sum,x)=>sum+Number(x.book_qty||0),0);
+    const actual=complete?ls.reduce((sum,x)=>sum+Number(x.count_qty||0),0):null;
+    const variance=complete?actual-book:null;
+    const policy=c.adjustment_policy||'AUTO_ADJUST';
+    let action='<button class="btn small-btn" data-action="openCount" data-id="'+c.id+'">ดูผล</button>';
+    if(!owner&&c.status==='DRAFT')action='<button class="btn small-btn" data-action="openCount" data-id="'+c.id+'">ทำต่อ</button>';
+    if(c.status==='SUBMITTED'&&can('ADMIN'))action='<button class="btn primary small-btn" data-action="finalizeCount" data-id="'+c.id+'">Admin Final</button> '+action;
+    if(c.status==='FINAL'&&policy==='MANUAL_ADJUST'&&variance!==0&&can('WAREHOUSE','ADMIN')){
+      action='<button class="btn primary small-btn" data-action="adjustFromCount" data-id="'+c.id+'">สร้าง Adjustment</button> '+action;
+    }
+    const varianceText=variance==null?'-':(variance>0?'+':'')+qty(variance);
+    return '<tr><td><b>'+esc(c.count_no)+'</b></td><td><b>'+esc(warehouse(c.warehouse_id).code||'-')+'</b></td><td>'+dmy(c.snapshot_at)+'</td><td><span class="badge blue">'+esc(policy)+'</span></td><td class="num" data-sort="'+book+'">'+qty(book)+'</td><td class="num" data-sort="'+(actual==null?'':actual)+'">'+(actual==null?'<span class="muted">ยังไม่ครบ</span>':qty(actual))+'</td><td class="num '+(variance<0?'negative':variance>0?'positive':'')+'" data-sort="'+(variance==null?'':variance)+'">'+varianceText+'</td><td>'+badge(c.status)+'</td><td class="action-cell">'+action+'</td></tr>';
+  });
+  const filter=analyticsFilters({year:false,warehouse:true})+countPeriodFilter();
+  const actionsHtml=owner?filter:filter+'<button class="btn primary" data-action="newCount">+ เริ่มรอบตรวจนับ</button>';
+  const title=owner?'ผลตรวจนับ Stock':'ตรวจนับ Stock';
+  const currentPolicy=stockCountPolicy();
+  const policyText=currentPolicy==='AUTO_ADJUST'
+    ?'Admin Final แล้วระบบปรับ Stock ตามยอดนับจริงอัตโนมัติ'
+    :currentPolicy==='REVIEW_ONLY'
+      ?'Admin Final แล้วเก็บผลตรวจเท่านั้น Stock ไม่เปลี่ยน'
+      :'Admin Final ผลตรวจ แล้วใช้เมนู Stock Adjustment เพื่อปรับยอดภายหลัง';
+  let summary='';
+  if(owner){
+    summary=cards([
+      ['รอบตรวจ',nf.format(counts.length),'รายการ'],
+      ['นับแล้ว',nf.format(countedLines.length),'จาก '+nf.format(allLines.length)+' SKU'],
+      ['ขาด',nf.format(shortage),'SKU'],
+      ['เกิน',nf.format(excess),'SKU'],
+      ['ส่วนต่างสุทธิ',(netVariance>0?'+':'')+qty(netVariance),'จำนวน']
+    ]);
+  }else{
+    summary='<div class="alert"><b>Policy ปัจจุบัน: '+esc(currentPolicy)+'</b> • '+esc(policyText)+' • แต่ละรอบจะล็อก Policy ตั้งแต่ตอนเริ่มตรวจนับ</div>';
+  }
+  return head(title,owner?'อ่านผล Book เทียบยอดตรวจจริงและส่วนต่างได้ทุกคลัง/ทุกรอบเดือน':'Snapshot → Count → Submit → Admin Final',actionsHtml)
+    +summary
+    +'<div class="panel"><div class="section-title"><h3>'+(owner?'ผลตรวจนับล่าสุด':'รายการรอบตรวจนับ')+'</h3><span class="muted">กดหัวคอลัมน์เพื่อเรียงข้อมูล</span></div>'
+    +table(['Count No.','คลัง','Snapshot','Policy','Book Qty','ยอดตรวจจริง','ส่วนต่าง','สถานะ','ดำเนินการ'],rows,'count-result-table')
+    +'</div>';
 }
 function transfersPage(){const rows=state.data.transfers.map(t=>{const l=transferLine(t.id)||{},p=product(l.product_id),sent=Number(l.sent_qty||0),received=l.received_qty==null?null:Number(l.received_qty),action=t.status==='IN_TRANSIT'?`<button class="btn primary small-btn" data-action="receiveTransfer" data-id="${t.id}">รับปลายทาง</button>`:'<span class="muted">—</span>';return `<tr><td><b>${esc(t.transfer_no)}</b></td><td>${esc(warehouse(t.from_warehouse_id).code||'-')}</td><td>${esc(warehouse(t.to_warehouse_id).code||'-')}</td><td class="product-cell"><b>${esc(p.code||'-')}</b><span>${esc(p.name||'ไม่ระบุสินค้า')}</span><small>หน่วย: ${esc(p.base_uom||'-')}</small></td><td class="num" data-sort="${sent}">${qty(sent)}</td><td class="num" data-sort="${received==null?'':received}">${received==null?'-':qty(received)}</td><td>${badge(t.status)}</td><td class="action-cell">${action}</td></tr>`});return head('โอนระหว่างคลัง','ตัดต้นทางเมื่อส่ง และเพิ่มปลายทางเมื่อรับจริง','<button class="btn primary" data-action="newTransfer">+ สร้างใบโอน</button>')+`<div class="panel">${table(['Transfer','จาก','ไป','สินค้า','ส่ง','รับจริง','สถานะ','ดำเนินการ'],rows,'transfer-table',[4,5])}</div>`}
 function repackLineHtml(){
@@ -872,12 +921,21 @@ function reverseConversionModal(id){
   $('#cancelReverseConversion').onclick=closeModal;
   $('#reverseConversionForm').onsubmit=async e=>{e.preventDefault();await runRpc('reverse_stock_conversion',{p_conversion_id:id,p_reason:$('#cvReverseReason').value.trim(),p_request_id:requestId('CONV-REV')},r=>`Reverse ${r.conversion_no} สำเร็จ`)};
 }
-function countModal(){modal(`<h2>ตรวจนับ Stock</h2><form id="countForm"><div class="form"><label>คลัง<select id="countWh">${option('warehouses',x=>`${x.code} • ${x.name}`)}</select></label></div><div class="alert warn">กรอกจำนวนที่นับจริง ระบบจะแสดงยอดตามบัญชีและส่วนต่าง</div><div id="countLines"></div><button class="btn primary">ยืนยันผลตรวจนับ</button></form>`);const renderLines=()=>{const wid=$('#countWh').value;$('#countLines').innerHTML=state.data.products.filter(x=>x.active!==false).map(p=>{const book=state.data.balances.find(b=>b.warehouse_id===wid&&b.product_id===p.id)?.on_hand||0;return `<div class="line-editor count-line" data-id="${p.id}" data-book="${book}"><label>สินค้า<input value="${esc(p.code)} • ${esc(p.name)}" disabled></label><label>Book Qty<input value="${qty(book)}" disabled></label><label>Count Qty<input class="count-qty" type="number" min="0" step="any" value="${book}" required></label><label>เหตุผลส่วนต่าง<input class="count-reason" placeholder="บังคับเมื่อมียอดต่าง"></label></div>`}).join('')};$('#countWh').onchange=renderLines;renderLines();$('#countForm').onsubmit=async e=>{e.preventDefault();const lines=$$('.count-line').map(r=>({product_id:r.dataset.id,count_qty:Number(r.querySelector('.count-qty').value),variance_reason:r.querySelector('.count-reason').value.trim()||null}));await runRpc('post_stock_count',{p_warehouse_id:$('#countWh').value,p_lines:lines,p_request_id:requestId('COUNT')},r=>`บันทึก ${r.count_no} สำเร็จ`)}}
 function transferModal(){modal(`<h2>สร้างใบโอนคลัง</h2><div class="alert">กรอกเลขใบโอนของ ERP/บริษัทได้ หรือเว้นว่างให้ FlowBiz One รันเลขให้อัตโนมัติ</div><form id="transferForm"><div class="form"><label>เลขเอกสารใบโอน (ไม่บังคับ)<input id="trDocNo" maxlength="100" placeholder="เช่น TF-2609-001 • เว้นว่าง = Auto"></label><label>คลังต้นทาง<select id="trFrom">${option('warehouses',x=>`${x.code} • ${x.name}`)}</select></label><label>คลังปลายทาง<select id="trTo">${option('warehouses',x=>`${x.code} • ${x.name}`)}</select></label><label>สินค้า<select id="trProduct">${option('products',x=>`${x.code} • ${x.name}`)}</select></label><label>จำนวนส่ง<input id="trQty" type="number" min="0.0001" step="any" required></label></div><div id="trAvailable" class="alert warn"></div><div class="actions"><button class="btn primary">ยืนยันส่งโอน</button><button class="btn" type="button" id="cancelTransfer">ยกเลิก</button></div></form>`);const update=()=>$('#trAvailable').textContent=`Available ต้นทาง ${qty(stockAvailable($('#trProduct').value,$('#trFrom').value))} ${product($('#trProduct').value).base_uom||''}`;$('#trFrom').onchange=update;$('#trProduct').onchange=update;$('#cancelTransfer').onclick=closeModal;update();$('#transferForm').onsubmit=async e=>{e.preventDefault();const from=$('#trFrom').value,to=$('#trTo').value,amount=Number($('#trQty').value),docNo=$('#trDocNo').value.trim();if(from===to)return toast('คลังต้นทางและปลายทางต้องไม่ซ้ำกัน',true);if(amount>stockAvailable($('#trProduct').value,from))return toast('จำนวนโอนมากกว่า Available Stock',true);await runRpc('create_transfer',{p_from_warehouse_id:from,p_to_warehouse_id:to,p_product_id:$('#trProduct').value,p_qty:amount,p_request_id:requestId('TRANSFER'),p_transfer_no:docNo||null},r=>`สร้าง ${r.transfer_no} สำเร็จ`)}}
 function countModal(){
   state.activeCount=null;state.activeCountLines=[];
-  modal(`<h2>ตรวจนับ Stock</h2><div class="form"><label>คลัง<select id="countWh">${option('warehouses',x=>`${x.code} • ${x.name}`)}</select></label></div><div class="alert warn">กดเริ่มรอบเพื่อสร้าง Snapshot ก่อน ยอดตามบัญชีจะถูกล็อกไว้ในรอบนี้ และยังไม่เปลี่ยน Stock</div><button id="startCountBtn" class="btn primary">ดึงยอดเพื่อเริ่มตรวจนับ</button>`);
-  $('#startCountBtn').onclick=async()=>{setLoading(true);try{const {data,error}=await db.rpc('start_stock_count',{p_warehouse_id:$('#countWh').value,p_request_id:requestId('COUNT_START')});if(error)throw error;state.activeCount=data;state.activeCountLines=data.lines||[];renderCountEditor(false)}catch(e){fail(e)}finally{setLoading(false)}};
+  modal(`<h2>เริ่มรอบตรวจนับ Stock</h2><p class="muted">เลือกคลังแล้วระบบจะ Snapshot Book Qty และ Policy ของรอบนี้</p><form id="startCountForm"><div class="form"><label>คลังสินค้า<select id="countWh" required>${option('warehouses',x=>`${x.code} • ${x.name}`)}</select></label></div><div class="alert">Policy ปัจจุบัน: <b>${esc(stockCountPolicy())}</b> • รอบที่เริ่มแล้วจะใช้ Policy นี้จนจบรอบ</div><div class="actions"><button class="btn primary" type="submit">เริ่มตรวจนับ</button><button class="btn" id="cancelStartCount" type="button">ยกเลิก</button></div></form>`);
+  $('#cancelStartCount').onclick=closeModal;
+  $('#startCountForm').onsubmit=async e=>{
+    e.preventDefault();setLoading(true);
+    try{
+      const {data,error}=await db.rpc('start_stock_count',{p_warehouse_id:$('#countWh').value,p_request_id:requestId('COUNT_START')});
+      if(error)throw error;
+      state.activeCount={id:data.id,count_no:data.count_no,warehouse_id:data.warehouse_id,status:data.status,snapshot_at:data.snapshot_at,adjustment_policy:data.adjustment_policy};
+      state.activeCountLines=(data.lines||[]).map(x=>({...x,pile_values:Array.isArray(x.pile_values)?x.pile_values:[]}));
+      closeModal();renderCountEditor(false);
+    }catch(err){fail(err)}finally{setLoading(false)}
+  };
 }
 function countPayload(){return state.activeCountLines.map(l=>{const row=document.querySelector(`.count-line[data-id="${l.id}"]`),value=row?.querySelector('.count-qty')?.value,reason=row?.querySelector('.count-reason')?.value.trim()||null;return {...l,count_qty:value===''||value==null?null:Number(value),pile_values:l.pile_values||[],variance_reason:reason}})}
 function refreshCountLine(id){const row=document.querySelector(`.count-line[data-id="${id}"]`);if(!row)return;const line=state.activeCountLines.find(x=>x.id===id),actual=Number(row.querySelector('.count-qty')?.value||0),diff=actual-Number(line?.book_qty||0),el=row.querySelector('.count-diff');if(el){el.textContent=qty(diff);el.className=`count-diff ${diff<0?'negative':diff>0?'positive':''}`}}
@@ -899,7 +957,12 @@ function renderCountEditor(readOnly=false){
 async function saveCountDraft(){if(!state.activeCount)return;setLoading(true);try{const {error}=await db.rpc('save_stock_count',{p_count_id:state.activeCount.id,p_lines:countPayload()});if(error)throw error;toast('บันทึกร่างผลตรวจนับแล้ว')}catch(e){fail(e)}finally{setLoading(false)}}
 async function submitCount(){if(!state.activeCount)return;const lines=countPayload();if(lines.some(x=>x.count_qty==null||Number.isNaN(x.count_qty)))return toast('กรอกยอดตรวจจริงให้ครบทุกสินค้า',true);setLoading(true);try{const {data,error}=await db.rpc('submit_stock_count',{p_count_id:state.activeCount.id,p_lines:lines,p_request_id:requestId('COUNT_SUBMIT')});if(error)throw error;toast(`ส่ง ${data.count_no} ให้ Admin Final แล้ว`);closeModal();await loadData();render()}catch(e){fail(e)}finally{setLoading(false)}}
 function openCount(id){const c=state.data.counts.find(x=>x.id===id);if(!c)return fail(new Error('STOCK_COUNT_NOT_FOUND'));state.activeCount=c;state.activeCountLines=state.data.countLines.filter(x=>x.count_id===id).map(x=>({...x,pile_values:Array.isArray(x.pile_values)?x.pile_values:[]}));renderCountEditor(!can('WAREHOUSE','ADMIN')||c.status!=='DRAFT')}
-async function finalizeCount(id){if(!confirm('ยืนยัน Admin Final และปรับยอด Stock ตามส่วนต่างรอบนี้?'))return;await runRpc('finalize_stock_count',{p_count_id:id,p_request_id:requestId('COUNT_FINAL')},r=>`Final ${r.count_no} แล้ว • ปรับ ${r.adjusted_lines||0} รายการ`)}
+async function finalizeCount(id){
+  const c=(state.data.counts||[]).find(x=>x.id===id),policy=c?.adjustment_policy||'AUTO_ADJUST';
+  const msg=policy==='AUTO_ADJUST'?'ยืนยัน Admin Final? ระบบจะปรับ Stock ตามส่วนต่างทันที':policy==='REVIEW_ONLY'?'ยืนยัน Admin Final? ระบบจะเก็บผลตรวจเท่านั้นและไม่เปลี่ยน Stock':'ยืนยัน Admin Final? ระบบจะเก็บผลตรวจและให้สร้าง Stock Adjustment ภายหลัง';
+  if(!confirm(msg))return;
+  await runRpc('finalize_stock_count',{p_count_id:id,p_request_id:requestId('COUNT_FINAL')},r=>r.policy==='AUTO_ADJUST'?`Final ${r.count_no} แล้ว • ปรับ Stock ${r.adjusted_lines||0} รายการ`:`Final ${r.count_no} แล้ว • Stock ยังไม่เปลี่ยน (${r.policy})`);
+}
 
 function receiveTransferModal(id){const t=byId('transfers',id),l=transferLine(id);modal(`<h2>รับโอน ${esc(t.transfer_no)}</h2><form id="receiveTransferForm"><div class="form"><label>จำนวนส่ง<input value="${qty(l.sent_qty)}" disabled></label><label>จำนวนรับจริง<input id="trReceived" type="number" min="0" max="${l.sent_qty}" step="any" value="${l.sent_qty}" required></label><label class="full">เหตุผลส่วนต่าง<input id="trReason" placeholder="บังคับเมื่อรับไม่เท่าจำนวนส่ง"></label></div><button class="btn primary">ยืนยันรับปลายทาง</button></form>`);$('#receiveTransferForm').onsubmit=async e=>{e.preventDefault();await runRpc('receive_transfer',{p_transfer_id:id,p_received_qty:Number($('#trReceived').value),p_variance_reason:$('#trReason').value.trim()||null,p_request_id:requestId('TRRECV')},r=>`รับ ${r.transfer_no} สำเร็จ • ส่วนต่าง ${qty(r.variance)}`)}}
 function tripModal(orderId){const o=byId('orders',orderId);modal(`<h2>จัดรถ ${esc(o.order_no)}</h2><form id="tripForm"><div class="form"><label>รถ<select id="tripVehicle"><option value="">— รถ Vendor / ไม่ระบุ —</option>${option('vehicles',x=>`${x.code} • ${x.plate_no||''} ${x.vehicle_type||''}`)}</select></label><label>คนขับ<select id="tripDriver"><option value="">— ไม่ระบุ —</option>${option('drivers',x=>`${x.code} • ${x.name}`)}</select></label><label>Vendor ขนส่ง<select id="tripVendor"><option value="">— รถบริษัท —</option>${option('suppliers',x=>`${x.code} • ${x.name}`)}</select></label><label>Standard Freight<input id="tripStd" type="number" min="0" step="any" value="0"></label><label>เวลาเริ่ม<input id="tripStart" type="datetime-local" value="${localInput(3600000)}" required></label><label>เวลาสิ้นสุด<input id="tripEnd" type="datetime-local" value="${localInput(14400000)}" required></label></div><button class="btn primary">ยืนยันจัดรถ</button></form>`);$('#tripForm').onsubmit=async e=>{e.preventDefault();const start=new Date($('#tripStart').value),end=new Date($('#tripEnd').value);if(end<=start)return toast('เวลาสิ้นสุดต้องอยู่หลังเวลาเริ่ม',true);await runRpc('create_delivery_trip',{p_order_id:orderId,p_vehicle_id:$('#tripVehicle').value||null,p_driver_id:$('#tripDriver').value||null,p_transport_supplier_id:$('#tripVendor').value||null,p_planned_start:start.toISOString(),p_planned_end:end.toISOString(),p_standard_freight:Number($('#tripStd').value||0),p_request_id:requestId('TRIP')},r=>`จัดรถ ${r.trip_no} สำเร็จ`)}}
