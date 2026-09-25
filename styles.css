@@ -298,3 +298,292 @@ linear-gradient(135deg,#f8fbfd 0%,#eef6f6 52%,#f8fafc 100%)}
   .repack-arrow{transform:rotate(90deg);padding:0}
   .repack-actions{flex-direction:column}
 }
+
+
+/* FlowBiz One Repack visual polish v1.16.2 */
+body:has(.repack-entry-panel) #page{max-width:1460px}
+
+.repack-entry-panel{
+  position:relative;
+  overflow:visible;
+  padding:22px 24px 20px;
+  border:1px solid #dfe8f2;
+  border-radius:18px;
+  box-shadow:0 10px 30px rgba(24,52,86,.06);
+  background:#fff;
+}
+
+.repack-entry-panel .section-title{
+  margin-bottom:18px;
+  padding-bottom:14px;
+  border-bottom:1px solid #edf2f7;
+}
+.repack-entry-panel .section-title h3{
+  margin:0 0 3px;
+  font-size:22px;
+  line-height:1.25;
+  color:#10233f;
+  letter-spacing:-.2px;
+}
+.repack-entry-panel .section-title .muted{
+  font-size:14px;
+  line-height:1.45;
+  color:#6b7d93;
+}
+
+.repack-header-grid{
+  display:grid;
+  grid-template-columns:1fr 1.3fr 1.25fr 1.4fr;
+  gap:18px;
+  margin-bottom:16px;
+}
+.repack-header-grid label,
+.repack-field{
+  display:flex;
+  flex-direction:column;
+  gap:8px;
+  min-width:0;
+  font-size:15px;
+  line-height:1.3;
+  font-weight:700;
+  color:#172b4d;
+}
+.repack-header-grid input,
+.repack-header-grid select,
+.repack-field input,
+.repack-field select,
+.repack-entry-panel .searchable-select-input{
+  box-sizing:border-box;
+  width:100%;
+  height:48px;
+  min-height:48px;
+  padding:0 14px;
+  border:1px solid #cdd9e6;
+  border-radius:10px;
+  background:#fff;
+  box-shadow:0 1px 2px rgba(16,35,63,.03);
+  color:#152844;
+  font-size:16px;
+  font-weight:600;
+  line-height:48px;
+  outline:none;
+  transition:border-color .15s ease,box-shadow .15s ease,background .15s ease;
+}
+.repack-header-grid input::placeholder,
+.repack-field input::placeholder,
+.repack-entry-panel .searchable-select-input::placeholder{
+  color:#8a9ab0;
+  font-weight:500;
+  opacity:1;
+}
+.repack-header-grid input:focus,
+.repack-header-grid select:focus,
+.repack-field input:focus,
+.repack-field select:focus,
+.repack-entry-panel .searchable-select-input:focus{
+  border-color:#4d8ccf;
+  box-shadow:0 0 0 3px rgba(54,126,201,.12);
+}
+.repack-header-grid input[type="date"]{
+  font-variant-numeric:tabular-nums;
+}
+
+.repack-rule{
+  margin:4px 0 18px;
+  padding:13px 16px;
+  border:1px solid #d8e7f8;
+  border-radius:12px;
+  background:#f5f9ff;
+  color:#355575;
+  font-size:14.5px;
+  line-height:1.55;
+}
+.repack-rule b{color:#183c66}
+
+#repackLines{
+  display:flex;
+  flex-direction:column;
+  gap:12px;
+}
+.repack-line{
+  display:grid;
+  grid-template-columns:minmax(245px,1.55fr) 42px minmax(245px,1.55fr) minmax(150px,.72fr) minmax(210px,1.05fr) 58px;
+  gap:12px;
+  align-items:end;
+  padding:16px;
+  border:1px solid #dce6f0;
+  border-radius:14px;
+  background:#fbfdff;
+}
+.repack-line:hover{
+  border-color:#c8d9ea;
+  background:#fff;
+}
+.repack-arrow{
+  align-self:center;
+  text-align:center;
+  padding-bottom:5px;
+  color:#159789;
+  font-size:28px;
+  font-weight:800;
+  line-height:1;
+}
+.repack-field small{
+  display:block;
+  min-height:18px;
+  margin-top:0;
+  color:#71849a;
+  font-size:13px;
+  font-weight:500;
+  line-height:1.3;
+}
+.repack-qty-field input{
+  text-align:right;
+  font-variant-numeric:tabular-nums;
+}
+.repack-line>.remove-repack-line{
+  align-self:end;
+  justify-self:stretch;
+  min-width:52px;
+  height:48px;
+  padding:0 10px;
+  border-radius:10px;
+  font-size:14px;
+}
+
+.repack-entry-panel .searchable-select{
+  position:relative;
+  width:100%;
+  min-width:0;
+}
+.repack-entry-panel .searchable-native-select{
+  position:absolute!important;
+  width:1px!important;
+  height:1px!important;
+  opacity:0!important;
+  pointer-events:none!important;
+}
+.repack-entry-panel .searchable-select-input{
+  padding-right:38px;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+.repack-entry-panel .searchable-select-list{
+  left:0;
+  right:auto;
+  min-width:max(100%,360px);
+  max-width:520px;
+  max-height:320px;
+  margin-top:6px;
+  border:1px solid #d3dfeb;
+  border-radius:12px;
+  box-shadow:0 16px 36px rgba(16,35,63,.16);
+  background:#fff;
+  z-index:100;
+  overflow:auto;
+}
+.repack-entry-panel .searchable-select-option{
+  min-height:44px;
+  padding:10px 13px;
+  font-size:14.5px;
+  line-height:1.35;
+}
+.repack-entry-panel .searchable-select-option:hover,
+.repack-entry-panel .searchable-select-option.active{
+  background:#f1f7fd;
+}
+.repack-entry-panel .searchable-select-option.selected{
+  color:#0d6f68;
+  font-weight:700;
+}
+
+.repack-actions{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  margin-top:18px;
+  padding-top:16px;
+  border-top:1px solid #edf2f7;
+}
+.repack-actions .btn{
+  min-height:46px;
+  border-radius:11px;
+  padding:0 18px;
+  font-size:15px;
+  font-weight:700;
+}
+.repack-actions .btn.primary{
+  min-width:170px;
+  box-shadow:0 6px 14px rgba(0,139,128,.15);
+}
+
+/* History card directly after Repack form */
+.repack-entry-panel + .panel{
+  margin-top:18px;
+  padding:20px 22px;
+  border:1px solid #dfe8f2;
+  border-radius:18px;
+  box-shadow:0 8px 24px rgba(24,52,86,.045);
+}
+.repack-entry-panel + .panel .section-title{
+  margin-bottom:14px;
+  padding-bottom:13px;
+  border-bottom:1px solid #edf2f7;
+}
+.repack-entry-panel + .panel .section-title h3{
+  margin:0 0 3px;
+  font-size:20px;
+  color:#10233f;
+}
+.repack-entry-panel + .panel .section-title .muted{
+  font-size:14px;
+}
+.repack-entry-panel + .panel table th{
+  font-size:13px;
+  font-weight:700;
+}
+.repack-entry-panel + .panel table td{
+  font-size:14px;
+}
+
+@media(max-width:1250px){
+  .repack-header-grid{grid-template-columns:1fr 1fr}
+  .repack-line{
+    grid-template-columns:minmax(240px,1fr) 42px minmax(240px,1fr);
+  }
+  .repack-qty-field,.repack-note-field{grid-column:auto}
+  .repack-line>.remove-repack-line{
+    width:auto;
+    justify-self:start;
+  }
+}
+@media(max-width:760px){
+  .repack-entry-panel{padding:18px 16px}
+  .repack-header-grid{grid-template-columns:1fr;gap:12px}
+  .repack-line{
+    grid-template-columns:1fr;
+    gap:10px;
+    padding:14px;
+  }
+  .repack-arrow{
+    transform:rotate(90deg);
+    padding:0;
+  }
+  .repack-line>.remove-repack-line{
+    width:100%;
+  }
+  .repack-actions{
+    flex-direction:column-reverse;
+    align-items:stretch;
+  }
+  .repack-actions .btn,
+  .repack-actions .btn.primary{
+    width:100%;
+  }
+  .repack-entry-panel .searchable-select-list{
+    min-width:100%;
+    max-width:100%;
+  }
+}
