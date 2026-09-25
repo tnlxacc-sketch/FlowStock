@@ -970,14 +970,98 @@ function reportsPage(){
 }
 function mastersPage(){const tabs=[['customers','Customer'],['productGroups','Product Group'],['products','Product'],['warehouses','Warehouse'],['suppliers','Vendor'],['vehicleTypes','Vehicle Type'],['vehicles','Vehicle'],['drivers','Driver'],['costs','Monthly Product Cost'],['expenseTypes','Cost & Expense Setup']];const cardsHtml=tabs.map(x=>`<div class="card"><div class="label">${x[1]}</div><div class="value">${nf.format(state.data[x[0]]?.length||0)}</div><button class="btn small-btn" style="margin-top:12px" data-action="manageMaster" data-id="${x[0]}">เปิดข้อมูล</button></div>`).join('');const openingCount=state.data.openingBatches?.length||0;return head('Master Data','ข้อมูลกลาง ต้นทุน และค่าใช้จ่ายสำหรับทุก Module','<button class="btn primary" data-action="openingStock">+ ยกสต็อกตั้งต้น</button> <button class="btn" data-action="masterImport">⇩ Download / ⇧ Upload Master</button>')+`<div class="cards"><div class="card"><div class="label">Opening Stock</div><div class="value">${nf.format(openingCount)}</div><div class="hint">ชุดที่บันทึกแล้ว</div><button class="btn primary small-btn" style="margin-top:12px" data-action="openingStock">เปิด / นำเข้า</button></div>${cardsHtml}</div><div class="alert warn">สต็อกตั้งต้นจะเพิ่ม On Hand และสร้าง Audit Log แต่ไม่เขียนทับ Monthly Product Cost • Master Upload จะ Preview ก่อนบันทึก</div>`}
 function usersPage(){const users=(state.data.users||[]).map(u=>{const self=u.user_id===state.session?.user?.id;return `<tr><td><b>${esc(u.full_name)}</b><br><span class="muted">${esc(u.email||'-')}</span></td><td>${esc(u.employee_code||'-')}</td><td><select id="userRole-${u.user_id}">${['SALES','WAREHOUSE','LOGISTICS','WAREHOUSE_LOGISTICS','OWNER','ADMIN'].map(r=>`<option value="${r}" ${r===u.app_role?'selected':''}>${roleThai[r]}</option>`).join('')}</select></td><td>${u.active?badge('ACTIVE'):badge('INACTIVE')} ${u.must_change_password?'<span class="badge warn">รอเปลี่ยนรหัส</span>':''}</td><td><button class="btn small-btn" data-action="saveUser" data-id="${u.user_id}" data-active="${u.active?'1':'0'}">บันทึกสิทธิ์</button> ${self?'':`<button class="btn small-btn" data-action="resetUserPassword" data-id="${u.user_id}">ตั้งรหัสชั่วคราวใหม่</button> <button class="btn ${u.active?'danger':''} small-btn" data-action="toggleUser" data-id="${u.user_id}" data-active="${u.active?'1':'0'}">${u.active?'ปิดใช้งาน':'เปิดใช้งาน'}</button>`}</td></tr>`});return head('Users / Roles','Admin สร้างบัญชีและกำหนดสิทธิ์ให้ผู้ใช้','<button class="btn primary" data-action="newAdminUser">+ สร้างผู้ใช้</button>')+cards([['ผู้ใช้งาน',nf.format(users.length),'บัญชี'],['รอเปลี่ยนรหัส',nf.format((state.data.users||[]).filter(x=>x.must_change_password).length),'บัญชี']])+`<div class="panel"><div class="alert ok">Admin สร้างผู้ใช้ → ส่งรหัสชั่วคราว → ผู้ใช้ตั้งรหัสใหม่เมื่อเข้าใช้งานครั้งแรก</div><h3>ผู้ใช้ในระบบ</h3>${table(['ผู้ใช้','รหัส','บทบาท','สถานะ',''],users)}</div>`}
+let pendingWarehouseMinimumImport=null;
+function warehouseMinimumTemplateRows(){
+  const overrideMap=new Map((state.data.warehouseMinimums||[]).map(x=>[`${x.product_id}|${x.warehouse_id}`,x]));
+  return (state.data.products||[]).filter(x=>x.active!==false).flatMap(p=>
+    (state.data.warehouses||[]).filter(x=>x.active!==false).map(w=>{
+      const override=overrideMap.get(`${p.id}|${w.id}`);
+      return [p.code,p.name||'',w.code,w.name||'',Number(p.minimum_stock||0),override?Number(override.minimum_stock):''];
+    })
+  );
+}
+function downloadWarehouseMinimumTemplate(){
+  downloadCsv('FlowBiz_One_Minimum_Stock_By_Warehouse.csv',
+    ['product_code','product_name','warehouse_code','warehouse_name','default_minimum_stock','minimum_stock'],
+    warehouseMinimumTemplateRows()
+  );
+}
+function normalizeWarehouseMinimumImport(text){
+  const raw=parseCsv(text),headers=raw[0]?.map(x=>x.replace(/^\ufeff/,'').trim())||[],
+    required=['product_code','warehouse_code','minimum_stock'],errors=[];
+  if(required.some(h=>!headers.includes(h)))return {rows:[],errors:[`Header ต้องมี: ${required.join(', ')}`],blankRows:0,totalRows:0};
+  if(raw.length-1>5000)return {rows:[],errors:['ไฟล์หนึ่งชุดรองรับไม่เกิน 5,000 รายการ'],blankRows:0,totalRows:raw.length-1};
+  const pMap=new Map((state.data.products||[]).filter(x=>x.active!==false).map(x=>[String(x.code).trim().toUpperCase(),x])),
+    wMap=new Map((state.data.warehouses||[]).filter(x=>x.active!==false).map(x=>[String(x.code).trim().toUpperCase(),x])),
+    seen=new Set(),rows=[];let blankRows=0;
+  raw.slice(1).forEach((values,index)=>{
+    const src=Object.fromEntries(headers.map((h,i)=>[h,values[i]?.trim()??''])),line=index+2,
+      pCode=String(src.product_code||'').toUpperCase(),wCode=String(src.warehouse_code||'').toUpperCase(),minRaw=String(src.minimum_stock??'').trim();
+    if(!pCode&&!wCode&&!minRaw)return;
+    if(!pCode||!wCode){errors.push(`แถว ${line}: ต้องระบุ product_code และ warehouse_code`);return}
+    const p=pMap.get(pCode),w=wMap.get(wCode),key=`${pCode}|${wCode}`;
+    if(!p){errors.push(`แถว ${line}: ไม่พบสินค้า ${src.product_code}`);return}
+    if(!w){errors.push(`แถว ${line}: ไม่พบคลัง ${src.warehouse_code}`);return}
+    if(seen.has(key)){errors.push(`แถว ${line}: ${src.product_code} / ${src.warehouse_code} ซ้ำในไฟล์`);return}
+    seen.add(key);
+    if(minRaw===''){blankRows++;return}
+    const minimum=Number(minRaw);
+    if(!Number.isFinite(minimum)||minimum<0){errors.push(`แถว ${line}: minimum_stock ต้องเป็น 0 หรือมากกว่า`);return}
+    rows.push({product_id:p.id,warehouse_id:w.id,minimum_stock:minimum,_preview:{product_code:p.code,product_name:p.name||'',warehouse_code:w.code,warehouse_name:w.name||'',minimum_stock:minimum}});
+  });
+  return {rows,errors,blankRows,totalRows:Math.max(0,raw.length-1)};
+}
 function warehouseMinimumModal(){
   if(!can('ADMIN'))return toast('เฉพาะ Admin',true);
+  pendingWarehouseMinimumImport=null;
   const products=(state.data.products||[]).filter(x=>x.active!==false),warehouses=(state.data.warehouses||[]).filter(x=>x.active!==false);
   if(!products.length||!warehouses.length)return toast('ต้องมี Product และ Warehouse ก่อนตั้งค่า Minimum Stock',true);
   const overrideMap=new Map((state.data.warehouseMinimums||[]).map(x=>[`${x.product_id}|${x.warehouse_id}`,x]));
   const headers=['สินค้า','Default',...warehouses.map(w=>esc(w.code))];
   const rows=products.map(p=>`<tr><td><b>${esc(p.code)}</b><small>${esc(p.name||'')}</small></td><td class="num">${qty(p.minimum_stock||0)}</td>${warehouses.map(w=>{const row=overrideMap.get(`${p.id}|${w.id}`);return `<td><input class="warehouse-min-input" data-product="${p.id}" data-warehouse="${w.id}" type="number" min="0" step="any" value="${row?esc(row.minimum_stock):''}" placeholder="${esc(p.minimum_stock||0)}" style="min-width:110px"></td>`}).join('')}</tr>`);
-  modal(`<h2>Minimum Stock แยกตามคลัง</h2><div class="alert ok"><b>ตั้งค่าง่าย:</b> ช่องว่าง = ใช้ Default จาก Product Master • ใส่ 0 = ไม่กำหนด Minimum สำหรับสินค้านั้นในคลังนั้น • ค่านี้มีผลเมื่อ Policy = BY WAREHOUSE</div><form id="warehouseMinimumForm"><div style="overflow:auto;max-height:60vh">${table(headers,rows,'warehouse-minimum-table')}</div><div class="actions" style="margin-top:16px"><button class="btn primary" type="submit">บันทึก Minimum รายคลัง</button></div></form>`);
+  modal(`<h2>Minimum Stock แยกตามคลัง</h2>
+    <div class="alert ok"><b>ตั้งค่าง่าย:</b> ช่องว่าง = ใช้ Default จาก Product Master • ใส่ 0 = ไม่กำหนด Minimum สำหรับสินค้านั้นในคลังนั้น • ค่านี้มีผลเมื่อ Policy = BY WAREHOUSE</div>
+    <div class="panel">
+      <h3>โหลด / อัปโหลดไฟล์ Minimum รายคลัง</h3>
+      <p class="muted"><b>อัปโหลดแบบ Replace:</b> เมื่อยืนยัน ระบบจะทับค่ารายคลังเดิมทั้งหมดของบริษัทด้วยไฟล์นี้ • แถวที่ minimum_stock ว่าง = กลับไปใช้ Default จาก Product Master • ค่า Default ใน Product Master ไม่ถูกแก้</p>
+      <div class="actions"><button id="wmDownloadTemplate" class="btn" type="button">ดาวน์โหลด Template CSV</button></div>
+      <div class="form" style="margin-top:10px"><label class="full">ไฟล์ CSV<input id="warehouseMinimumFile" type="file" accept=".csv,text/csv"></label></div>
+      <div class="actions"><button id="wmPreviewUpload" class="btn" type="button">ตรวจไฟล์ก่อนอัปโหลด</button><button id="wmCommitUpload" class="btn primary" type="button" disabled>อัปโหลดทับค่ารายคลัง</button></div>
+      <div id="warehouseMinimumPreview" style="margin-top:10px">${empty('ยังไม่ได้เลือกไฟล์')}</div>
+    </div>
+    <form id="warehouseMinimumForm"><div style="overflow:auto;max-height:60vh">${table(headers,rows,'warehouse-minimum-table')}</div><div class="actions" style="margin-top:16px"><button class="btn primary" type="submit">บันทึก Minimum รายคลังจากตาราง</button></div></form>`);
+
+  $('#wmDownloadTemplate').onclick=downloadWarehouseMinimumTemplate;
+  $('#wmPreviewUpload').onclick=async()=>{
+    const file=$('#warehouseMinimumFile').files[0];
+    if(!file)return toast('กรุณาเลือกไฟล์ CSV',true);
+    if(file.size>5*1024*1024)return toast('ไฟล์ต้องไม่เกิน 5 MB',true);
+    const parsed=normalizeWarehouseMinimumImport(await file.text());
+    pendingWarehouseMinimumImport=parsed.errors.length?null:parsed;
+    $('#wmCommitUpload').disabled=parsed.errors.length>0;
+    if(parsed.errors.length){
+      $('#warehouseMinimumPreview').innerHTML=`<div class="alert danger"><b>พบ ${nf.format(parsed.errors.length)} จุดที่ต้องแก้</b><br>${parsed.errors.slice(0,12).map(esc).join('<br>')}${parsed.errors.length>12?'<br>...':''}</div>`;
+      return;
+    }
+    const previewRows=parsed.rows.slice(0,10).map(x=>`<tr><td><b>${esc(x._preview.product_code)}</b> ${esc(x._preview.product_name)}</td><td>${esc(x._preview.warehouse_code)} ${esc(x._preview.warehouse_name)}</td><td class="num">${qty(x.minimum_stock)}</td></tr>`);
+    $('#warehouseMinimumPreview').innerHTML=`<div class="alert ok"><b>ไฟล์ผ่านการตรวจสอบ</b> • ตั้งค่าเฉพาะคลัง ${nf.format(parsed.rows.length)} รายการ • เว้นว่าง/ใช้ Default ${nf.format(parsed.blankRows)} รายการ</div>${table(['สินค้า','คลัง','Minimum'],previewRows,'warehouse-minimum-upload-preview')}`;
+  };
+  $('#wmCommitUpload').onclick=async()=>{
+    if(!pendingWarehouseMinimumImport)return toast('กรุณาตรวจไฟล์ก่อนอัปโหลด',true);
+    if(!window.confirm('ยืนยันอัปโหลดทับ Minimum Stock รายคลังเดิมทั้งหมดของบริษัท?\n\nค่า Default ใน Product Master จะไม่ถูกแก้'))return;
+    setLoading(true);
+    try{
+      const rows=pendingWarehouseMinimumImport.rows.map(({_preview,...x})=>x);
+      const {error}=await db.rpc('admin_replace_warehouse_minimums',{p_rows:rows});
+      if(error)throw error;
+      const {data,error:readError}=await db.from('product_warehouse_minimums').select('*').order('warehouse_id').order('product_id');
+      if(readError)throw readError;
+      state.data.warehouseMinimums=data||[];
+      pendingWarehouseMinimumImport=null;
+      closeModal();toast(`อัปโหลด Minimum Stock รายคลังแล้ว ${rows.length} รายการ`);render();
+    }catch(err){fail(err)}finally{setLoading(false)}
+  };
+
   $('#warehouseMinimumForm').onsubmit=async e=>{
     e.preventDefault();
     const rows=[];
