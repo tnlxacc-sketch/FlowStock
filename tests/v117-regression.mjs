@@ -19,7 +19,7 @@ const migrationPaths=[
 ];
 for(const p of migrationPaths) assert(fs.existsSync(new URL(p,import.meta.url)),`missing production migration: ${p}`);
 
-assert(index.includes('app.js?v=1.17.1'),'frontend cache version must be v1.17.1');
+assert(index.includes('app.js?v=1.17.2'),'frontend cache version must be v1.17.2');
 assert(index.includes('styles.css?v=1.17.0'),'stylesheet cache version must be v1.17.0');
 
 assert(app.includes("['stockadjust','±','Stock Adjustment']"),'Stock Adjustment menu missing');
@@ -89,3 +89,8 @@ console.log(JSON.stringify({
   performanceIndexes:8,
   result:'PASS'
 },null,2));
+
+assert(app.includes("head('Report Center'"),'Report Center page missing');
+assert(app.includes('หน้า Report Center ไม่ใช้จำนวนแถวที่ Browser โหลดมาเป็น KPI'),'Report Center must reject browser-row KPI counts');
+assert(!app.includes("function reportsPage(){const k=getReportKpis(),latest='CSV เฉพาะรายการล่าสุดที่โหลด'"),'Legacy misleading Reports page still present');
+assert(app.includes("data-action=\"salesHistoryImport\">นำเข้าประวัติ Demo"),'Demo history import must remain available in Data Management');
