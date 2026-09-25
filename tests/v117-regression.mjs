@@ -52,9 +52,11 @@ assert(countSql.includes("'MANUAL_ADJUSTMENT'"),'Manual adjustment movement miss
 assert(countSql.includes("'MANUAL_ADJUSTMENT_REVERSAL'"),'Manual adjustment reversal missing');
 assert(countSql.includes("c.status in ('ADJUSTED','FINAL')"),'Count finalization idempotency missing');
 
+const policySql=fs.readFileSync(new URL('../supabase/migrations/20260925075332_stock_count_policy_and_manual_adjustment.sql',import.meta.url),'utf8');
 const lifecycleSql=fs.readFileSync(new URL('../supabase/migrations/20260925080235_stock_adjustment_lifecycle_support.sql',import.meta.url),'utf8');
-assert(lifecycleSql.includes('stock_adjustments'),'Adjustment lifecycle schema missing');
-assert(lifecycleSql.includes('reverse_stock_adjustment'),'Adjustment reverse lifecycle missing');
+assert(policySql.includes('stock_adjustments'),'Adjustment schema missing');
+assert(countSql.includes('reverse_stock_adjustment'),'Adjustment reverse lifecycle missing');
+assert(lifecycleSql.includes('STOCK_ADJUSTMENT'),'Adjustment lifecycle/reset integration missing');
 
 const repackSql=fs.readFileSync(new URL('../supabase/migrations/20260925073342_manual_transfer_repack_numbers_and_equal_qty.sql',import.meta.url),'utf8');
 assert(repackSql.includes('REPACK_QTY_MUST_MATCH'),'Repack Qty Out/Qty In equality guard missing');
