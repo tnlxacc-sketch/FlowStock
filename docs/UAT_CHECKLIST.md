@@ -156,3 +156,28 @@ Record tester, date, company, role, expected result, actual result, and evidence
 14. Year-end rollover clears Conversion transaction history only after verified backup, then carries ending Stock to the new year.
 15. Stock Movement filter includes Conversion OUT / IN / Reverse OUT / Reverse IN.
 16. Login startup uses sequential query batches for stability; verify login and navigation through Dashboard / Warehouse / Stock after deployment.
+
+## v1.17.0 Stock Count Policy / Manual Adjustment / Release Gate UAT
+
+1. ADMIN can set Stock Count Policy to AUTO_ADJUST, REVIEW_ONLY, or MANUAL_ADJUST.
+2. A Stock Count snapshots its adjustment policy when the count starts; later setting changes do not alter an existing count.
+3. AUTO_ADJUST: Admin Final creates COUNT_ADJUSTMENT movements for non-zero variance and updates On Hand atomically.
+4. AUTO_ADJUST must never reduce On Hand below Allocated quantity.
+5. REVIEW_ONLY: Admin Final records the completed count and variance without changing Stock.
+6. MANUAL_ADJUST: Admin Final records the count without changing Stock and allows creating a Stock Adjustment from the finalized variance.
+7. Stock Adjustment can contain multiple lines in one warehouse and requires a reason for every line.
+8. A decrease checks Available Stock = On Hand − Allocated in both UI and database transaction.
+9. Only ADMIN can Post a submitted Stock Adjustment.
+10. Posting creates MANUAL_ADJUSTMENT Stock Movements and updates Stock atomically.
+11. Repeating the same completed Post/Final request is idempotent and does not duplicate Stock Movement.
+12. Reverse Stock Adjustment requires a reason, preserves the original movement/audit history, and creates MANUAL_ADJUSTMENT_REVERSAL movements.
+13. Reverse is blocked when the resulting Stock would be below Allocated quantity.
+14. Closed periods block Stock Adjustment Post/Reverse for the closed business month.
+15. Repack requires Qty Out = Qty In, matching UOM, different From/To products, and sufficient Available Stock.
+16. Repack Reverse is blocked when target Available Stock is insufficient.
+17. Source control contains the production migrations for Repack, Stock Count Policy, Stock Adjustment lifecycle, allocation controls, and required FK indexes.
+18. Supabase integrity check returns zero negative On Hand, zero Allocated > On Hand, zero duplicate Stock Balance keys, zero duplicate Order/Invoice numbers, and zero orphan transaction lines.
+19. Supabase performance advisor has no unindexed foreign-key findings for Stock Adjustment or Repack.
+20. GitHub Pages deployment must run `tests/ui-audit.mjs` and `tests/v117-regression.mjs`; deployment is blocked when either test fails.
+21. A 500,000-row synthetic database aggregation benchmark is recorded separately as a capacity signal; it is not a substitute for customer-like end-to-end load testing.
+
