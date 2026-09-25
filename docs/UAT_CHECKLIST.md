@@ -119,3 +119,20 @@ Record tester, date, company, role, expected result, actual result, and evidence
 10. Refresh Admin status and confirm `DR READY`.
 11. Confirm restore rehearsal refuses a target Supabase URL equal to the source URL.
 12. Confirm YEAR_END rollover still requires the verified year-end SHA and is blocked if data changed after backup.
+
+
+## v1.15.3 Realistic Demo History UAT
+
+1. Reset Demo business data and upload Master 01–11.
+2. Post Opening Stock dated 2026-06-01 with reference OPEN-2026-06-01.
+3. Confirm Opening Stock Movement date displays 2026-06-01.
+4. Open Realistic Demo History Import and select Historical GR / Orders / Order Lines / Invoices.
+5. Preview must validate all Master codes and simulate Stock chronologically.
+6. Preview must block any date sequence that would make Stock negative.
+7. Commit must create Goods Receipts and RECEIPT Stock Movements using historical receipt dates.
+8. Commit must create ORDER_ISSUE Stock Movements using historical delivery dates.
+9. Stock Balance after import must equal Opening + Historical GR − Historical Order Issue.
+10. Sales / Delivery / Invoice records must remain linked and historical dates preserved.
+11. Stock Movement must show Opening / IN / OUT / Balance in chronological order.
+12. Company-level Minimum Stock alert must match Ending Stock after all historical movements.
+13. UAT rollback test passed: Opening 1,000 + GR 500 − Sales Issue 600 = Ending 900 with 3 historical movement rows and correct dates/references.
