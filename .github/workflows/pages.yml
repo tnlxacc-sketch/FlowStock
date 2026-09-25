@@ -18,6 +18,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Run UI audit
+        run: node tests/ui-audit.mjs
+      - name: Run v1.17 regression
+        run: node tests/v117-regression.mjs
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
