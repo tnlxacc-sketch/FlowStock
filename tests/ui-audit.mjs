@@ -24,6 +24,8 @@ ui.state.data={
   invoiceOrders:[{invoice_id:'i1',order_id:'o1'}],invoiceTrips:[{invoice_id:'i1',trip_id:'t1'}],costs:[{product_id:'p1',cost_month:`${year}-01-01`,unit_cost:60}],expenseTypes:[{id:'e1',code:'TOLL',name:'Toll',category:'DIRECT_EXPENSE',basis:'MANUAL',include_in_contribution:true,active:true}],expenseRates:[],actualExpenses:[],counts:[],countLines:[],periods:[],settings:[],openingBatches:[],openingLines:[],accessRequests:[],users:[],audit:[],tenants:[]
 };
 ui.state.data.todayStatus={date:`${year}-09-23`,orders:1,invoices:5,revenue:963427.2,trips:2,completed_trips:2,future_completed_trips:2,waiting_logistics:0,late_trips:0,stockout_rows:0,low_contribution_invoices:1,contribution_threshold_pct:18.5};
+ui.state.data.reportKpis={finances:{low_contribution:1,contribution_threshold_pct:18.5}};
+ui.state.data.reportKpisKey=JSON.stringify({p_year:Number(year),p_month:null,p_warehouse_id:null,p_customer_id:null,p_product_id:null,p_vehicle_id:null});
 const todayHtml=ui.todayPanel();
 assert(todayHtml.includes('963,427.2'),"today sales comes from today's invoices");
 assert(todayHtml.includes('5'),'today invoice count is shown');
