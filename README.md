@@ -55,7 +55,7 @@ Live site: https://tnlxacc-sketch.github.io/FlowStock/
 
 ## Commercial release status
 
-Commercial baseline: **v1.14.2 — COMMERCIAL PILOT READY + Managed Master Data**
+Commercial baseline: **v1.15.2 — COMMERCIAL PILOT READY / DR-GATED PRODUCTION**
 
 This build is approved for a controlled first-customer paid pilot and UAT. It must not be marketed as proven for 500,000 annual sales records until the benchmark is completed. See [Commercial Closeout](docs/COMMERCIAL_RELEASE_1_14_2.md).
 
@@ -77,3 +77,13 @@ This build is approved for a controlled first-customer paid pilot and UAT. It mu
 - Product Master includes Minimum Stock.
 - Executive alerts and Stock screen can drill/filter products below Minimum Stock.
 - Minimum Stock is alert/filter only and does not change stock posting, allocation, issue, receipt, transfer, or count adjustment rules.
+
+
+## Backup / Restore release gate
+
+- Production customer deployments use a dedicated customer-owned Supabase project.
+- FlowBiz One can create operator-verified PRE_GO_LIVE / MONTHLY / YEAR_END / MANUAL archives with `scripts/backup-project.mjs`.
+- Restore rehearsal is performed in a separate test environment with `scripts/restore-rehearsal.mjs`.
+- Admin > สำรอง / เริ่มปีใหม่ shows Backup Archive, Restore Rehearsal and DR READY status.
+- Production go-live is approved only after the latest archive has a successful restore proof.
+- See `docs/BACKUP_RESTORE_RUNBOOK.md`.
