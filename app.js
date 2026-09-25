@@ -604,18 +604,19 @@ function stockPage(){
     return head('Stock คงเหลือ',sub,`<button class="btn" data-go="stockhealth">← Stock Summary</button><button class="btn" data-action="exportStock">ดาวน์โหลด Stock</button>`)+toolbar+cards([['On Hand',qty(totalOnHand),summary?'รวมทุกคลัง':'ตามรายการที่เลือก'],['Allocated',qty(totalAllocated),'ยอดจัดสรร'],['Available',qty(totalOnHand-totalAllocated),'พร้อมใช้'],['Stock ต่ำกว่า Min',nf.format(lowRows.length),byWarehouse?'สินค้า/คลัง':'สินค้า']])+`<div class="panel"><div class="section-title"><h3>${summary?'ยอดรวมทุกคลัง':'ยอดแยกตามคลัง'}</h3><span class="muted">${esc(minHint)}</span></div>${table(summary?['สินค้า','On Hand','Minimum','Allocated','Available','สถานะ','UoM']:['สินค้า','คลัง','On Hand','Minimum','Allocated','Available','สถานะ','UoM'],rows,'stock-balance-table')}</div>`;
   }
 
+  const minimumSetupWarning=byWarehouse&&!(state.data.warehouseMinimums||[]).length?'<div class="alert warn"><b>ยังไม่ได้ตั้ง Minimum Stock รายคลัง</b> • ตอนนี้ Product Master ก็เป็น 0 จึงแสดง Minimum เป็น “-” • ให้ Admin เข้า System Setup → Minimum Stock Policy → โหลด CSV ที่กรอกคอลัมน์ minimum_stock แล้ว</div>':'';
   const filtered=allBalanceRows.filter(b=>`${product(b.product_id).code} ${product(b.product_id).name} ${warehouse(b.warehouse_id).code} ${warehouse(b.warehouse_id).name}`.toLowerCase().includes(state.search)).filter(b=>!onlyLow||(byWarehouse?lowKeys.has(pairKey(b.product_id,b.warehouse_id)):lowProducts.has(b.product_id)));
   const rows=filtered.map(b=>{
     const p=product(b.product_id),w=warehouse(b.warehouse_id),avail=Number(b.on_hand||0)-Number(b.allocated||0),
       min=byWarehouse?effectiveWarehouseMinimum(b.product_id,b.warehouse_id):Number(p.minimum_stock||0),
       low=byWarehouse?lowKeys.has(pairKey(b.product_id,b.warehouse_id)):lowProducts.has(b.product_id),
       minText=!byWarehouse&&min>0?'รวม '+qty(min):min>0?qty(min):'-';
-    return `<tr class="${low?'stock-low-row':''}"><td><b>${esc(p.code)}</b> ${esc(p.name)}</td><td>${esc(w.code)} ${esc(w.name)}</td><td class="num">${qty(b.on_hand)}</td><td class="num">${minText}</td><td class="num">${qty(b.allocated)}</td><td class="num"><b>${qty(avail)}</b></td><td>${low?'<span class="badge danger">ต่ำกว่า Min</span>':min>0?'<span class="badge ok">ปกติ</span>':'-'}</td><td>${esc(p.base_uom||'')}</td></tr>`;
+    return `<tr class="${low?'stock-low-row':''}"><td><b>${esc(p.code)}</b> ${esc(p.name)}</td><td>${esc(w.code)} ${esc(w.name)}</td><td class="num">${qty(b.on_hand)}</td><td class="num">${minText}</td><td class="num">${qty(b.allocated)}</td><td class="num"><b>${qty(avail)}</b></td><td>${low?'<span class="badge danger">ต่ำกว่า Min</span>':min>0?'<span class="badge ok">ปกติ</span>':'<span class="muted">ไม่กำหนด</span>'}</td><td>${esc(p.base_uom||'')}</td></tr>`;
   });
   const moves=movementRows().slice(0,500).map(m=>{const p=product(m.product_id),w=warehouse(m.warehouse_id),inQty=Number(m.qty)>0?Number(m.qty):0,outQty=Number(m.qty)<0?Math.abs(Number(m.qty)):0;return `<tr><td>${dmy(m.created_at)}</td><td><b>${esc(p.code)}</b> ${esc(p.name||'')}</td><td>${esc(w.code)}</td><td>${esc(movementTypeThai[m.movement_type]||m.movement_type)}</td><td>${esc(m.reference_no||'-')}</td><td class="num positive">${inQty?qty(inQty):'-'}</td><td class="num negative">${outQty?qty(outQty):'-'}</td><td class="num"><b>${qty(m.balance_after)}</b></td></tr>`});
   const typeOpts=['ALL','IN','OUT',...Object.keys(movementTypeThai)].map(x=>`<option value="${x}">${x==='ALL'?'ทุกประเภท':x==='IN'?'เข้า':x==='OUT'?'ออก':movementTypeThai[x]}</option>`).join('');
   const minHint=byWarehouse?'BY WAREHOUSE — เทียบ Min ของคลังนั้นโดยตรง':'TOTAL — สถานะ Min ใช้ Stock รวมทุกคลัง';
-  return head('Stock','ยอดคงเหลือและ Stock Movement',`<button class="btn" data-action="exportStock">ดาวน์โหลด Stock</button><button class="btn" data-action="exportMovements">Export Movement</button><button class="btn" data-action="emailStockReport">ส่งรายงาน</button>`)+`<div class="alert"><b>Minimum Stock: ${esc(policy)}</b> • ${esc(minHint)}</div><div class="toolbar"><label class="stock-min-filter"><input id="stockBelowMin" type="checkbox" ${onlyLow?'checked':''}> แสดงเฉพาะ Stock ต่ำกว่า Min</label><input id="pageSearch" placeholder="ค้นหาสินค้า / คลัง / เอกสาร"></div><div class="panel"><h3>ยอดคงเหลือ</h3>${table(['สินค้า','คลัง','On Hand','Minimum','Allocated','Available','สถานะ','UoM'],rows,'stock-balance-table')}</div><div class="panel"><div class="page-head"><div><h3>Stock Movement</h3><p>ยอดเข้า / ออก / คงเหลือหลังรายการ</p></div></div><div class="toolbar"><select id="movementWarehouse"><option value="ALL">ทุกคลัง</option>${option('warehouses',x=>`${x.code} • ${x.name}`)}</select><select id="movementProduct"><option value="ALL">ทุกสินค้า</option>${option('products',x=>`${x.code} • ${x.name}`)}</select><select id="movementType">${typeOpts}</select><label class="date-filter">ตั้งแต่ <input id="movementFrom" type="date"></label><label class="date-filter">ถึง <input id="movementTo" type="date"></label><button class="btn small-btn" type="button" data-action="resetStockFilters">ล้างตัวกรอง</button></div>${table(['วันที่','สินค้า','คลัง','ประเภท','อ้างอิง','In','Out','คงเหลือ'],moves,'movement-table')}</div>`;
+  return head('Stock','ยอดคงเหลือและ Stock Movement',`<button class="btn" data-action="exportStock">ดาวน์โหลด Stock</button><button class="btn" data-action="exportMovements">Export Movement</button><button class="btn" data-action="emailStockReport">ส่งรายงาน</button>`)+`<div class="alert"><b>Minimum Stock: ${esc(policy)}</b> • ${esc(minHint)}</div>`+minimumSetupWarning+`<div class="toolbar"><label class="stock-min-filter"><input id="stockBelowMin" type="checkbox" ${onlyLow?'checked':''}> แสดงเฉพาะ Stock ต่ำกว่า Min</label><input id="pageSearch" placeholder="ค้นหาสินค้า / คลัง / เอกสาร"></div><div class="panel"><h3>ยอดคงเหลือ</h3>${table(['สินค้า','คลัง','On Hand','Minimum','Allocated','Available','สถานะ','UoM'],rows,'stock-balance-table')}</div><div class="panel"><div class="page-head"><div><h3>Stock Movement</h3><p>ยอดเข้า / ออก / คงเหลือหลังรายการ</p></div></div><div class="toolbar"><select id="movementWarehouse"><option value="ALL">ทุกคลัง</option>${option('warehouses',x=>`${x.code} • ${x.name}`)}</select><select id="movementProduct"><option value="ALL">ทุกสินค้า</option>${option('products',x=>`${x.code} • ${x.name}`)}</select><select id="movementType">${typeOpts}</select><label class="date-filter">ตั้งแต่ <input id="movementFrom" type="date"></label><label class="date-filter">ถึง <input id="movementTo" type="date"></label><button class="btn small-btn" type="button" data-action="resetStockFilters">ล้างตัวกรอง</button></div>${table(['วันที่','สินค้า','คลัง','ประเภท','อ้างอิง','In','Out','คงเหลือ'],moves,'movement-table')}</div>`;
 }
 function countVariance(c){return state.data.countLines.filter(x=>x.count_id===c.id).reduce((s,x)=>s+(x.count_qty==null?0:Number(x.count_qty)-Number(x.book_qty||0)),0)}
 function countsPage(){
@@ -1018,11 +1019,16 @@ async function previewWarehouseMinimumSettingsUpload(){
   if(!file)return toast('กรุณาเลือกไฟล์ CSV',true);
   if(file.size>5*1024*1024)return toast('ไฟล์ต้องไม่เกิน 5 MB',true);
   const parsed=normalizeWarehouseMinimumImport(await file.text());
-  pendingWarehouseMinimumImport=parsed.errors.length?null:parsed;
-  if(commit)commit.disabled=parsed.errors.length>0;
+  const noValues=!parsed.errors.length&&parsed.rows.length===0;
+  pendingWarehouseMinimumImport=(parsed.errors.length||noValues)?null:parsed;
+  if(commit)commit.disabled=parsed.errors.length>0||noValues;
   if(!preview)return;
   if(parsed.errors.length){
     preview.innerHTML=`<div class="alert danger"><b>พบ ${nf.format(parsed.errors.length)} จุดที่ต้องแก้</b><br>${parsed.errors.slice(0,12).map(esc).join('<br>')}${parsed.errors.length>12?'<br>...':''}</div>`;
+    return;
+  }
+  if(noValues){
+    preview.innerHTML='<div class="alert warn"><b>ยังไม่มีค่า Minimum ให้นำเข้า</b><br>กรอกตัวเลขในคอลัมน์ <code>minimum_stock</code> อย่างน้อย 1 รายการก่อนอัปโหลด • ช่องว่างหมายถึงใช้ Default จาก Product Master</div>';
     return;
   }
   const previewRows=parsed.rows.slice(0,8).map(x=>`<tr><td><b>${esc(x._preview.product_code)}</b> ${esc(x._preview.product_name)}</td><td>${esc(x._preview.warehouse_code)} ${esc(x._preview.warehouse_name)}</td><td class="num">${qty(x.minimum_stock)}</td></tr>`);
@@ -1071,10 +1077,15 @@ function warehouseMinimumModal(){
     if(!file)return toast('กรุณาเลือกไฟล์ CSV',true);
     if(file.size>5*1024*1024)return toast('ไฟล์ต้องไม่เกิน 5 MB',true);
     const parsed=normalizeWarehouseMinimumImport(await file.text());
-    pendingWarehouseMinimumImport=parsed.errors.length?null:parsed;
-    $('#wmCommitUpload').disabled=parsed.errors.length>0;
+    const noValues=!parsed.errors.length&&parsed.rows.length===0;
+    pendingWarehouseMinimumImport=(parsed.errors.length||noValues)?null:parsed;
+    $('#wmCommitUpload').disabled=parsed.errors.length>0||noValues;
     if(parsed.errors.length){
       $('#warehouseMinimumPreview').innerHTML=`<div class="alert danger"><b>พบ ${nf.format(parsed.errors.length)} จุดที่ต้องแก้</b><br>${parsed.errors.slice(0,12).map(esc).join('<br>')}${parsed.errors.length>12?'<br>...':''}</div>`;
+      return;
+    }
+    if(noValues){
+      $('#warehouseMinimumPreview').innerHTML='<div class="alert warn"><b>ยังไม่มีค่า Minimum ให้นำเข้า</b><br>กรอกตัวเลขในคอลัมน์ <code>minimum_stock</code> อย่างน้อย 1 รายการก่อนอัปโหลด</div>';
       return;
     }
     const previewRows=parsed.rows.slice(0,10).map(x=>`<tr><td><b>${esc(x._preview.product_code)}</b> ${esc(x._preview.product_name)}</td><td>${esc(x._preview.warehouse_code)} ${esc(x._preview.warehouse_name)}</td><td class="num">${qty(x.minimum_stock)}</td></tr>`);
