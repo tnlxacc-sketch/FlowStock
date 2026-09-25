@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import vm from 'node:vm';
 
 const source=fs.readFileSync(new URL('../app.js',import.meta.url),'utf8').replace(/\ninit\(\)\.catch[\s\S]*$/,'');
-const context={console,Blob,URL,Intl,crypto,confirm:()=>true,prompt:()=>'',window:{print(){},open(){}},document:{querySelector(){return null},querySelectorAll(){return[]}},supabase:{createClient(){return{}}}};
+const context={console,Blob,URL,Intl,crypto,confirm:()=>true,prompt:()=>'',MutationObserver:class{observe(){} disconnect(){}},window:{print(){},open(){}},document:{body:{},querySelector(){return null},querySelectorAll(){return[]}},supabase:{createClient(){return{}}}};
 vm.createContext(context);
 vm.runInContext(`${source}\nglobalThis.__ui={state,actions,roleMenus,dashboardPage,todayPanel,ordersPage,customersPage,warehousePage,stockPage,countsPage,transfersPage,deliveryPage,profitPage,customer360Page,stockHealthPage,deliveryPerformancePage,costVariancePage,reportsPage,mastersPage,usersPage,settingsPage,dataManagementPage,auditPage,commercialPage,analyticsInvoices,analyticsTrips,analyticsBalances,profitTable,invoiceGross,invoiceContribution,parseCsv,normalizeImport,normalizeOpeningStockImport,movementRows,getReportKpis,serverInvoiceTable};`,context);
 
