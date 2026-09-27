@@ -21,7 +21,8 @@ const migrationPaths=[
 ];
 for(const p of migrationPaths) assert(fs.existsSync(new URL(p,import.meta.url)),`missing production migration: ${p}`);
 
-assert(index.includes('app.js?v=1.17.6'),'frontend cache version must be v1.17.6');
+assert(index.includes('app.js?v=1.17.7'),'frontend cache version must be v1.17.7');
+assert(index.includes('support-selfservice-enhancements.js?v=1.17.7'),'self-service layer cache version must be v1.17.7');
 assert(index.includes('styles.css?v=1.17.0'),'stylesheet cache version must be v1.17.0');
 
 assert(app.includes("['stockadjust','±','Stock Adjustment']"),'Stock Adjustment menu missing');
@@ -83,7 +84,7 @@ for(const idx of [
 assert(!app.includes('db.auth.signUp('),'Self-service signup must remain disabled');
 
 console.log(JSON.stringify({
-  release:'v1.17.0',
+  release:'v1.17.7',
   productionMigrationsSynced:migrationPaths.length,
   countPolicies:['AUTO_ADJUST','REVIEW_ONLY','MANUAL_ADJUST'],
   adjustmentGuards:['available-stock','period-close','idempotency','reverse'],
