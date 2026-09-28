@@ -22,6 +22,8 @@ jobs:
         run: node tests/ui-audit.mjs
       - name: Run v1.17 regression
         run: node tests/v117-regression.mjs
+      - name: Run full-system UAT gate
+        run: node tests/full-system-uat-v1177.mjs
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
