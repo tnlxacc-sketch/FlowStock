@@ -19,6 +19,7 @@ SOURCE_REF='ifanefgaiuzkbjtttiqn'
 TARGET_REF='avofysgyuthbixthugcp'
 POOLER='aws-0-ap-southeast-1.pooler.supabase.com'
 CA_URL='https://supabase-downloads.s3-ap-southeast-1.amazonaws.com/prod/ssl/prod-ca-2021.crt'
+INVENTORY_SQL="select coalesce(jsonb_agg(jsonb_build_object('schema',n.nspname,'table',c.relname,'rows',((xpath('/row/n/text()',query_to_xml(format('select count(*) n from %I.%I',n.nspname,c.relname),false,true,'')))[1]::text)::bigint,'fingerprint',(xpath('/row/h/text()',query_to_xml(format($fb$select md5(coalesce(string_agg(h,'' order by h),'')) h from (select md5(to_jsonb(t)::text) h from %I.%I t) a$fb$,n.nspname,c.relname),false,true,'')))[1]::text) order by n.nspname,c.relname),'[]'::jsonb)::text from pg_class c join pg_namespace n on n.oid=c.relnamespace where c.relkind='r' and n.nspname in ('public','private','auth','storage','supabase_migrations');"
 CA_SHA='700723581420dd1ac98fd7e9ac529f0ef210eadcaf87fc868a3ad7d114c2f3b7'
 
 def validate_url(value,ref,role):
@@ -85,7 +86,7 @@ class Runner:
             snapshot=keeper.stdout.readline().strip()
             if not re.fullmatch(r'[0-9A-Fa-f-]+',snapshot):raise RuntimeError('Cannot export source snapshot')
             self.proof['source_snapshot']=snapshot
-            inventory="select coalesce(jsonb_agg(jsonb_build_object('schema',n.nspname,'table',c.relname,'rows',((xpath('/row/n/text()',query_to_xml(format('select count(*) n from %I.%I',n.nspname,c.relname),false,true,'')))[1]::text)::bigint,'fingerprint',(xpath('/row/h/text()',query_to_xml(format($fb$select md5(coalesce(string_agg(h,'' order by h),'')) h from (select md5(to_jsonb(t)::text) h from %I.%I t) a$fb$,n.nspname,c.relname),false,true,'')))[1]::text) order by n.nspname,c.relname),'[]'::jsonb)::text from pg_class c join pg_namespace n on n.oid=c.relnamespace where c.relkind='r' and n.nspname in ('public','private','auth','storage','supabase_migrations');"
+            inventory=INVENTORY_SQL
             keeper.stdin.write(inventory+'\n');keeper.stdin.flush()
             baseline=json.loads(keeper.stdout.readline())
             (self.private/'table-baseline.json').write_text(json.dumps(baseline))
@@ -97,6 +98,15 @@ class Runner:
                 keeper.stdin.write(f'select coalesce(jsonb_agg(to_jsonb(t)),\'[]\'::jsonb)::text from "{schema}"."{table}" t;\n');keeper.stdin.flush()
                 managed[schema+'.'+table]=json.loads(keeper.stdout.readline())
             (self.private/'managed-data.json').write_text(json.dumps(managed))
+            ddl_queries=[
+                "select coalesce(jsonb_agg(pg_get_triggerdef(t.oid)||';' order by n.nspname,c.relname,t.tgname),'[]'::jsonb)::text from pg_trigger t join pg_class c on c.oid=t.tgrelid join pg_namespace n on n.oid=c.relnamespace where n.nspname in ('auth','storage') and not t.tgisinternal;",
+                "select coalesce(jsonb_agg(format('CREATE POLICY %I ON %I.%I AS %s FOR %s TO %s%s%s;',policyname,schemaname,tablename,permissive,cmd,(select string_agg(case when r='public' then 'PUBLIC' else quote_ident(r) end,',' order by r) from unnest(roles) r),case when qual is null then '' else ' USING ('||qual||')' end,case when with_check is null then '' else ' WITH CHECK ('||with_check||')' end) order by schemaname,tablename,policyname),'[]'::jsonb)::text from pg_policies where schemaname in ('auth','storage');"
+            ]
+            managed_ddl=[]
+            for query in ddl_queries:
+                keeper.stdin.write(query+'\n');keeper.stdin.flush();managed_ddl.extend(json.loads(keeper.stdout.readline()))
+            (self.private/'managed-ddl.sql').write_text('\n'.join(managed_ddl))
+
             for name,schemas,extra in [('application.dump',['public','private','supabase_migrations'],[]),('managed-data.dump',['auth','storage'],['--data-only'])]:
                 args=['--dbname',self.source,'--format=custom','--no-owner','--snapshot',snapshot,'--file','/work/private/'+name]
                 for schema in schemas:args.extend(['--schema',schema])
@@ -110,13 +120,49 @@ class Runner:
         finally:
             if keeper.poll() is None:keeper.terminate();keeper.wait(timeout=15)
 
+    def restore(self):
+        pre=json.loads(self.sql("select json_build_object('role',current_user,'app_tables',(select count(*) from pg_tables where schemaname in ('public','private')),'auth_users',(select count(*) from auth.users),'storage_objects',(select count(*) from storage.objects))::text;",source=False))
+        if pre['role']!='flowbiz_restore_test' or any(pre[k] for k in ['app_tables','auth_users','storage_objects']):raise RuntimeError('Approved TEST is not empty; restore refused')
+        for name,expected in self.proof['database_sha256'].items():
+            if hashlib.sha256((self.private/name).read_bytes()).hexdigest()!=expected:raise RuntimeError('Dump integrity check failed')
+        archive='/work/private/application.dump'
+        listing=self.pg('pg_restore',['--list',archive],source=False)
+        existing=json.loads(self.sql("select json_agg(nspname) from pg_namespace where nspname in ('public','private','supabase_migrations');",source=False))
+        lines=[]
+        for line in listing.splitlines():
+            if any(re.search(r' SCHEMA - '+re.escape(schema)+r' ',line) for schema in existing):continue
+            lines.append(line)
+        (self.private/'application-list.txt').write_text('\n'.join(lines)+'\n')
+        for section in ['pre-data','data','post-data']:
+            self.pg('pg_restore',['--use-list','/work/private/application-list.txt','--section',section,'--no-owner','--file','/work/private/'+section+'.sql',archive],source=False)
+        bundle=json.loads((self.private/'managed-data.json').read_text())
+        bundle_text=json.dumps(bundle)
+        (self.private/'restore-managed.sql').write_text("select private.flowbiz_restore_managed_test(:'managed_bundle'::jsonb);\n")
+        args=['-X','-w','-qAt','--single-transaction','--set=ON_ERROR_STOP=1','--dbname',self.target,'--file','/work/private/pre-data.sql','--variable','managed_bundle='+bundle_text,'--file','/work/private/restore-managed.sql','--file','/work/private/data.sql','--file','/work/private/post-data.sql']
+        self.pg('psql',args,source=False)
+        # Managed schema policies/triggers need postgres ownership; they are applied separately by the connector.
+        baseline=json.loads((self.private/'table-baseline.json').read_text())
+        target=json.loads(self.sql(INVENTORY_SQL,source=False))
+        target_map={(x['schema'],x['table']):x for x in target}
+        diff=[]
+        for row in baseline:
+            actual=target_map.get((row['schema'],row['table']))
+            if actual is None or actual['rows']!=row['rows'] or actual['fingerprint']!=row['fingerprint']:
+                diff.append({'source':row,'target':actual})
+        (self.private/'table-target.json').write_text(json.dumps(target))
+        (self.private/'table-reconciliation.json').write_text(json.dumps({'tables_checked':len(baseline),'differences':diff},indent=2))
+        self.proof.update({'database_restore_executed':True,'tables_checked':len(baseline),'table_differences':len(diff),'database_restore_reconciled':not diff})
+        if diff:raise RuntimeError('Actual restored database reconciliation differs; see private evidence')
+        self.proof['status']='DATABASE_RESTORE_RECONCILED_POD_AND_BROWSER_PENDING'
+
 def main():
     runner=Runner()
     try:
         runner.backup()
+        if os.environ.get('RESTORE_MODE')=='RESTORE_APPROVED_TEST':runner.restore()
         (runner.private/'proof.json').write_text(json.dumps(runner.proof,indent=2))
         runner.encrypt()
-        print(json.dumps({'status':runner.proof['status'],'source_read_only_verified':True,'database_backup_created':True,'restore_executed':False,'full_system_uat_passed':False}))
+        print(json.dumps({'status':runner.proof['status'],'source_read_only_verified':True,'database_backup_created':True,'restore_executed':runner.proof.get('database_restore_executed',False),'full_system_uat_passed':False}))
     except Exception as exc:
         (runner.private/'failure.txt').write_text(str(exc))
         runner.proof['status']='FAILED';(runner.private/'proof.json').write_text(json.dumps(runner.proof))

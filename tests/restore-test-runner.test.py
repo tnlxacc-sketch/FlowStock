@@ -2,6 +2,7 @@ import importlib.util
 import os
 import hashlib
 import hmac
+import json
 from pathlib import Path
 import subprocess
 import tarfile
@@ -12,6 +13,33 @@ spec=importlib.util.spec_from_file_location('runner',Path(__file__).resolve().pa
 runner=importlib.util.module_from_spec(spec);spec.loader.exec_module(runner)
 
 class RunnerTests(unittest.TestCase):
+    def restore_fixture(self,d,occupied=False,tampered=False):
+        r=runner.Runner.__new__(runner.Runner);r.root=Path(d);r.private=r.root/'private';r.private.mkdir();r.source='source-fixture';r.target='target-fixture';r.calls=[]
+        archive=r.private/'application.dump';archive.write_bytes(b'fixture-dump')
+        expected=hashlib.sha256(archive.read_bytes()).hexdigest();r.proof={'database_sha256':{'application.dump':expected},'full_system_uat_passed':False}
+        if tampered:archive.write_bytes(b'changed')
+        baseline=[{'schema':'public','table':'example','rows':1,'fingerprint':'fixture'}];(r.private/'table-baseline.json').write_text(json.dumps(baseline));(r.private/'managed-data.json').write_text('{}')
+        def sql(q,source=True):
+            r.calls.append(('sql',q,source))
+            if "'app_tables'" in q:return json.dumps({'role':'flowbiz_restore_test','app_tables':int(occupied),'auth_users':0,'storage_objects':0})
+            if 'json_agg(nspname)' in q:return '["public","private"]'
+            return json.dumps(baseline)
+        def pg(tool,args,source=True,stdin=None):
+            r.calls.append((tool,args,source))
+            if '--list' in args:return '1; 2615 0 SCHEMA - public postgres\n2; 1259 0 TABLE public example postgres'
+            return '{}'
+        r.sql=sql;r.pg=pg;return r
+    def test_restore_uses_atomic_target_transaction_and_file_variable_substitution(self):
+        with tempfile.TemporaryDirectory() as d:
+            r=self.restore_fixture(d);r.restore();calls=[c for c in r.calls if c[0]=='psql'];self.assertEqual(len(calls),1)
+            args=calls[0][1];self.assertIn('--single-transaction',args);self.assertEqual(args[args.index('--dbname')+1],'target-fixture');self.assertIn('/work/private/restore-managed.sql',args);self.assertNotIn('--command',args)
+            self.assertTrue(r.proof['database_restore_reconciled']);self.assertFalse(r.proof['full_system_uat_passed']);self.assertTrue(all(c[2] is False for c in r.calls))
+    def test_occupied_or_changed_dump_refused_before_restore(self):
+        for occupied,tampered in [(True,False),(False,True)]:
+            with self.subTest(occupied=occupied,tampered=tampered),tempfile.TemporaryDirectory() as d:
+                r=self.restore_fixture(d,occupied,tampered)
+                with self.assertRaises(RuntimeError):r.restore()
+                self.assertFalse(any(c[0]=='pg_restore' for c in r.calls))
     def test_source_and_target_identity(self):
         src='postgresql://flowbiz_backup_test.ifanefgaiuzkbjtttiqn:placeholder@aws-0-ap-southeast-1.pooler.supabase.com:5432/postgres?sslmode=verify-full&connect_timeout=15'
         self.assertEqual(runner.validate_url(src,runner.SOURCE_REF,'flowbiz_backup_test'),src)

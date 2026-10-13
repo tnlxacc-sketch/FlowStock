@@ -1,4 +1,4 @@
-name: FlowBiz One Actual Read-only Database Backup
+name: FlowBiz One Actual Backup Restore Reconciliation
 "on":
   push:
     branches: ["commercial/customer-isolated-deployment"]
@@ -30,6 +30,7 @@ jobs:
           TARGET_DATABASE_URL: ${{ secrets.FLOWBIZ_TARGET_DATABASE_URL }}
           BACKUP_ENCRYPTION_KEY: ${{ secrets.FLOWBIZ_BACKUP_ENCRYPTION_KEY }}
           FLOWBIZ_WORK_DIRECTORY: ${{ runner.temp }}/flowbiz-private-work
+          RESTORE_MODE: RESTORE_APPROVED_TEST
         run: python3 scripts/restore-test-runner.py
       - name: Retain encrypted backup and checksums only
         if: always()
