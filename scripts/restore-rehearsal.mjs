@@ -8,6 +8,7 @@ import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { createReadStream } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
+import { assertRestoreTarget } from './restore-target-guard.mjs';
 
 const {
   ARCHIVE_FILE,ARCHIVE_SHA256,TARGET_DATABASE_URL,TARGET_SUPABASE_URL,TARGET_SERVICE_ROLE_KEY,
@@ -43,6 +44,8 @@ try{
   const targetUrl=TARGET_SUPABASE_URL.replace(/\/$/,'');
   if(manifest.source_supabase_url&&targetUrl===String(manifest.source_supabase_url).replace(/\/$/,''))
     throw new Error('Refusing to restore into the source/production Supabase project');
+
+  assertRestoreTarget(TARGET_DATABASE_URL,TARGET_SUPABASE_URL,manifest.source_supabase_url,SOURCE_DATABASE_URL);
 
   if((await hash(dbFile)).toLowerCase()!==String(manifest.database_sha256).toLowerCase())
     throw new Error('Database dump SHA-256 mismatch');
