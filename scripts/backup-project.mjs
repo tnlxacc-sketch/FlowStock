@@ -8,6 +8,8 @@ import { createWriteStream } from 'node:fs';
 import { chmod, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { basename, join, resolve } from 'node:path';
 import { pipeline } from 'node:stream/promises';
+import { projectRef, assertDatabaseProject } from './restore-target-guard.mjs';
+import { pgEnvironment } from './pg-safe-env.mjs';
 
 const {
   DATABASE_URL,SUPABASE_URL,SUPABASE_SERVICE_ROLE_KEY,COMPANY_ID,BACKUP_DIRECTORY,
@@ -20,6 +22,9 @@ if (![DATABASE_URL,SUPABASE_URL,SUPABASE_SERVICE_ROLE_KEY,COMPANY_ID,BACKUP_DIRE
   throw new Error('Set DATABASE_URL, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, COMPANY_ID, BACKUP_DIRECTORY and valid BACKUP_KIND. YEAR_END also requires CLOSED_YEAR.');
 }
 
+const sourceProjectRef=projectRef(SUPABASE_URL);
+const safeDatabaseUrl=assertDatabaseProject(DATABASE_URL,sourceProjectRef);
+const sourceEnv=pgEnvironment(process.env,{readOnly:true});
 const root=resolve(BACKUP_DIRECTORY);
 await mkdir(root,{recursive:true,mode:0o700});await chmod(root,0o700);
 const stamp=new Date().toISOString().replace(/[:.]/g,'-');
@@ -30,14 +35,14 @@ const dbFile=join(work,'database.dump'),podDir=join(work,'pods');await mkdir(pod
 
 const run=(cmd,args,opts={})=>new Promise((ok,fail)=>{
   const {input,...spawnOptions}=opts;
-  const child=spawn(cmd,args,{stdio:[input===undefined?'ignore':'pipe','pipe','pipe'],...spawnOptions});
+  const child=spawn(cmd,args,{stdio:[input===undefined?'ignore':'pipe','pipe','pipe'],...spawnOptions,env:sourceEnv});
   let out='',err='';child.stdout.on('data',x=>out+=x);child.stderr.on('data',x=>err+=x);
   if(input!==undefined)child.stdin.end(input);
   child.on('error',fail);
   child.on('close',code=>code===0?ok(out.trim()):fail(new Error(`${cmd}: ${err.slice(-4000)}`)));
 });
 const sql=async(query,variables={})=>run('psql',[
-  '--no-psqlrc','--set=ON_ERROR_STOP=1','--tuples-only','--no-align','--dbname',DATABASE_URL,
+  '--no-psqlrc','--set=ON_ERROR_STOP=1','--tuples-only','--no-align','--dbname',safeDatabaseUrl,
   ...Object.entries(variables).flatMap(([k,v])=>['-v',`${k}=${v}`]),'-f','-'
 ],{input:query+'\n'});
 const hash=async file=>{const {createReadStream}=await import('node:fs');const h=createHash('sha256');for await(const chunk of createReadStream(file))h.update(chunk);return h.digest('hex')};
@@ -93,7 +98,7 @@ select json_build_object(
 
 try{
   const before=await snapshot();
-  await run('pg_dump',['--dbname',DATABASE_URL,'--format=custom','--no-owner','--no-acl','--file',dbFile]);
+  await run('pg_dump',['--dbname',safeDatabaseUrl,'--format=custom','--no-owner','--no-acl','--file',dbFile]);
   await run('pg_restore',['--list',dbFile]);
 
   const pods=await collect(COMPANY_ID),objects=[];
@@ -129,27 +134,13 @@ try{
   await run('tar',['-tzf',archive]);
   const sha256=await hash(archive);
 
-  await sql(`insert into private.backup_registry
-    (company_id,backup_kind,period_label,archive_sha256,archive_path,source_project_ref,audit_max_id,pod_objects,manifest)
-    values(:'company_id'::uuid,:'backup_kind',nullif(:'period_label',''),:'sha256',:'archive_path',nullif(:'source_project_ref',''),:'audit_max_id'::bigint,:'pod_objects'::integer,:'manifest'::jsonb)
-    on conflict (archive_sha256) do nothing`,{
-      company_id:COMPANY_ID,backup_kind:BACKUP_KIND,period_label:PERIOD_LABEL||CLOSED_YEAR||'',
-      sha256,archive_path:archive,source_project_ref:projectRef||'',audit_max_id:after.audit_max_id,
-      pod_objects:objects.length,manifest:JSON.stringify(manifest)
-  });
-
-  if(BACKUP_KIND==='YEAR_END'){
-    await sql(`insert into private.year_end_backups(company_id,closed_year,archive_sha256,archive_path,audit_max_id,pod_objects)
-      values(:'company_id'::uuid,:'closed_year'::integer,:'sha256',:'archive_path',:'audit_max_id'::bigint,:'pod_objects'::integer)
-      on conflict (company_id,closed_year) do update set archive_sha256=excluded.archive_sha256,archive_path=excluded.archive_path,
-        audit_max_id=excluded.audit_max_id,pod_objects=excluded.pod_objects,backed_up_at=now(),consumed_at=null`,{
-      company_id:COMPANY_ID,closed_year:CLOSED_YEAR,sha256,archive_path:archive,audit_max_id:after.audit_max_id,pod_objects:objects.length
-    });
-  }
+  // Read-only backup: evidence stays in the archive; never register on source.
+  await chmod(archive,0o600);
 
   await rm(work,{recursive:true,force:true});
-  process.stdout.write(JSON.stringify({archive,sha256,backup_kind:BACKUP_KIND,company_id:COMPANY_ID,pod_objects:objects.length,table_counts:manifest.table_counts})+'\n');
+  process.stdout.write(JSON.stringify({archive,sha256,backup_kind:BACKUP_KIND,company_id:COMPANY_ID,pod_objects:objects.length,table_counts:manifest.table_counts,source_registry_updated:false})+'\n');
 }catch(error){
   process.stderr.write(`Backup stopped: ${error.message}\nFiles retained at ${work}\n`);
   process.exitCode=1;
 }
+

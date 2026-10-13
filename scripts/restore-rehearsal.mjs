@@ -4,53 +4,71 @@
 // Requires Node 20+, pg_restore, psql and tar.
 import { spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import { mkdtemp, readFile, rm, copyFile } from 'node:fs/promises';
 import { createReadStream } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
-import { assertRestoreTarget } from './restore-target-guard.mjs';
+import { assertRestoreTarget, assertDatabaseProject, projectRef } from './restore-target-guard.mjs';
+import { pgEnvironment } from './pg-safe-env.mjs';
+import { fileURLToPath } from 'node:url';
 
 const {
   ARCHIVE_FILE,ARCHIVE_SHA256,TARGET_DATABASE_URL,TARGET_SUPABASE_URL,TARGET_SERVICE_ROLE_KEY,
-  SOURCE_DATABASE_URL,RESTORE_CONFIRM
+  SOURCE_DATABASE_URL,RESTORE_CONFIRM,EXPECTED_TARGET_PROJECT_REF
 }=process.env;
 if(![ARCHIVE_FILE,ARCHIVE_SHA256,TARGET_DATABASE_URL,TARGET_SUPABASE_URL,TARGET_SERVICE_ROLE_KEY,SOURCE_DATABASE_URL].every(Boolean)
   || !/^[a-f0-9]{64}$/i.test(ARCHIVE_SHA256) || RESTORE_CONFIRM!=='RESTORE_TO_TEST_ENVIRONMENT'){
   throw new Error('Set ARCHIVE_FILE, ARCHIVE_SHA256, TARGET_DATABASE_URL, TARGET_SUPABASE_URL, TARGET_SERVICE_ROLE_KEY, SOURCE_DATABASE_URL and RESTORE_CONFIRM=RESTORE_TO_TEST_ENVIRONMENT');
 }
+if(EXPECTED_TARGET_PROJECT_REF!=='avofysgyuthbixthugcp')throw Error('This rehearsal is restricted to approved FlowBiz-One-Restore-TEST');
+const safeTargetDatabaseUrl=assertDatabaseProject(TARGET_DATABASE_URL,projectRef(TARGET_SUPABASE_URL));
 const archive=resolve(ARCHIVE_FILE);
+const targetEnv=pgEnvironment(process.env);
 const run=(cmd,args,opts={})=>new Promise((ok,fail)=>{
-  const {input,...spawnOptions}=opts;const child=spawn(cmd,args,{stdio:[input===undefined?'ignore':'pipe','pipe','pipe'],...spawnOptions});
+  const {input,...spawnOptions}=opts;const child=spawn(cmd,args,{stdio:[input===undefined?'ignore':'pipe','pipe','pipe'],...spawnOptions,env:targetEnv});
   let out='',err='';child.stdout.on('data',x=>out+=x);child.stderr.on('data',x=>err+=x);
   if(input!==undefined)child.stdin.end(input);child.on('error',fail);
   child.on('close',code=>code===0?ok(out.trim()):fail(new Error(`${cmd}: ${err.slice(-5000)}`)));
 });
 const hash=async file=>{const h=createHash('sha256');for await(const chunk of createReadStream(file))h.update(chunk);return h.digest('hex')};
-const sql=async(url,query,variables={})=>run('psql',['--no-psqlrc','--set=ON_ERROR_STOP=1','--tuples-only','--no-align','--dbname',url,...Object.entries(variables).flatMap(([k,v])=>['-v',`${k}=${v}`]),'-f','-'],{input:query+'\n'});
+const sql=async(url,query,variables={})=>run('psql',['--no-psqlrc','--set=ON_ERROR_STOP=1','--quiet','--tuples-only','--no-align','--dbname',url,...Object.entries(variables).flatMap(([k,v])=>['-v',`${k}=${v}`]),'-f','-'],{input:query+'\n'});
 
 const actualHash=await hash(archive);
 if(actualHash.toLowerCase()!==ARCHIVE_SHA256.toLowerCase())throw new Error('Archive SHA-256 mismatch');
 
 const temp=await mkdtemp(join(tmpdir(),'flowbiz-restore-'));
 try{
-  await run('tar',['-xzf',archive,'-C',temp]);
-  const listing=(await run('tar',['-tzf',archive])).split('\n');
-  const manifestEntry=listing.find(x=>x.endsWith('/manifest.json'));
-  const dbEntry=listing.find(x=>x.endsWith('/database.dump'));
-  if(!manifestEntry||!dbEntry)throw new Error('Archive is missing manifest.json or database.dump');
-  const root=manifestEntry.slice(0,-'/manifest.json'.length),manifest=JSON.parse(await readFile(join(temp,manifestEntry),'utf8'));
-  const dbFile=join(temp,dbEntry);
+  const privateArchive=join(temp,'archive.tar.gz');
+  await copyFile(archive,privateArchive);
+  if(await hash(privateArchive)!==actualHash)throw Error('Archive changed while copying');
+  const extracted=join(temp,'extracted');
+  const validated=JSON.parse(await run('python3',[fileURLToPath(new URL('./validate-backup-archive.py',import.meta.url)),privateArchive,extracted]));
+  const {root}=validated,manifest=JSON.parse(await readFile(join(extracted,validated.manifest),'utf8'));
+  const dbFile=join(extracted,validated.database);
 
   const targetUrl=TARGET_SUPABASE_URL.replace(/\/$/,'');
   if(manifest.source_supabase_url&&targetUrl===String(manifest.source_supabase_url).replace(/\/$/,''))
     throw new Error('Refusing to restore into the source/production Supabase project');
 
-  assertRestoreTarget(TARGET_DATABASE_URL,TARGET_SUPABASE_URL,manifest.source_supabase_url,SOURCE_DATABASE_URL);
+  assertRestoreTarget(TARGET_DATABASE_URL,TARGET_SUPABASE_URL,manifest.source_supabase_url,SOURCE_DATABASE_URL,EXPECTED_TARGET_PROJECT_REF);
+
+  if(projectRef(manifest.source_supabase_url)!=='ifanefgaiuzkbjtttiqn')throw Error('Archive is not from the approved FlowStock source');
+  const targetPreflight=JSON.parse(await sql(safeTargetDatabaseUrl,`
+begin transaction read only;
+select json_build_object(
+ 'app_tables',(select count(*) from pg_tables where schemaname in ('public','private')),
+ 'auth_users',(select count(*) from auth.users),
+ 'storage_objects',(select count(*) from storage.objects),
+ 'storage_buckets',(select count(*) from storage.buckets)
+)::text;
+commit;
+`));
+  if(Object.values(targetPreflight).some(value=>Number(value)!==0))throw Error('TEST must be empty; refusing to overwrite existing tables, users or storage');
 
   if((await hash(dbFile)).toLowerCase()!==String(manifest.database_sha256).toLowerCase())
     throw new Error('Database dump SHA-256 mismatch');
 
-  await run('pg_restore',['--clean','--if-exists','--exit-on-error','--no-owner','--no-acl','--dbname',TARGET_DATABASE_URL,dbFile]);
+  await run('pg_restore',['--clean','--if-exists','--exit-on-error','--single-transaction','--no-owner','--no-acl','--dbname',safeTargetDatabaseUrl,dbFile]);
 
   const headers={Authorization:`Bearer ${TARGET_SERVICE_ROLE_KEY}`,apikey:TARGET_SERVICE_ROLE_KEY,'x-upsert':'true'};
   const storageBase=`${targetUrl}/storage/v1`;
@@ -61,7 +79,7 @@ try{
   }else if(!bucketCheck.ok)throw new Error(`Cannot inspect target POD bucket: ${bucketCheck.status}`);
 
   for(const obj of manifest.pod_objects||[]){
-    const local=join(temp,root,obj.file);
+    const local=join(extracted,root,obj.file);
     if((await hash(local)).toLowerCase()!==String(obj.sha256).toLowerCase())throw new Error(`POD hash mismatch: ${obj.path}`);
     const body=await readFile(local);
     const dest=`${storageBase}/object/pod-documents/${obj.path.split('/').map(encodeURIComponent).join('/')}`;
@@ -69,7 +87,7 @@ try{
     if(!res.ok)throw new Error(`POD upload failed ${res.status}: ${obj.path}`);
   }
 
-  const targetSnapshot=JSON.parse(await sql(TARGET_DATABASE_URL,`
+  const targetSnapshot=JSON.parse(await sql(safeTargetDatabaseUrl,`
 select json_build_object(
  'table_counts',json_build_object(
    'customers',(select count(*) from public.customers where company_id=:'company_id'::uuid),
@@ -103,11 +121,9 @@ select json_build_object(
   const verification={passed,same_counts:sameCounts,same_financials:sameFinancials,pod_objects_uploaded:podCount,pod_metadata_count:Number(targetSnapshot.pod_metadata_count),verified_at:new Date().toISOString()};
   if(!passed)throw new Error('Restore verification mismatch: '+JSON.stringify(verification));
 
-  await sql(SOURCE_DATABASE_URL,`update private.backup_registry
-    set restore_verified_at=now(),restore_target_fingerprint=:'fingerprint',restore_verification=:'verification'::jsonb
-    where archive_sha256=:'sha256'`,{fingerprint:targetFingerprint,verification:JSON.stringify(verification),sha256:actualHash.toLowerCase()});
-
-  process.stdout.write(JSON.stringify({passed:true,archive_sha256:actualHash,target_fingerprint:targetFingerprint,verification})+'\n');
+  // Never write verification back to the source database.
+  process.stdout.write(JSON.stringify({passed:true,verification_scope:'legacy-critical-tables-financials-pod-metadata-only',full_system_uat_passed:false,archive_sha256:actualHash,target_fingerprint:targetFingerprint,source_registry_updated:false,verification})+'\n');
 }finally{
   await rm(temp,{recursive:true,force:true});
 }
+
