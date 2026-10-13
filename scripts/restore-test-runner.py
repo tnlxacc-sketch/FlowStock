@@ -21,6 +21,8 @@ POOLER='aws-0-ap-southeast-1.pooler.supabase.com'
 CA_URL='https://supabase-downloads.s3-ap-southeast-1.amazonaws.com/prod/ssl/prod-ca-2021.crt'
 INVENTORY_SQL="select coalesce(jsonb_agg(jsonb_build_object('schema',n.nspname,'table',c.relname,'rows',((xpath('/row/n/text()',query_to_xml(format('select count(*) n from %I.%I',n.nspname,c.relname),false,true,'')))[1]::text)::bigint,'fingerprint',(xpath('/row/h/text()',query_to_xml(format($fb$select md5(coalesce(string_agg(h,'' order by h),'')) h from (select md5(to_jsonb(t)::text) h from %I.%I t) a$fb$,n.nspname,c.relname),false,true,'')))[1]::text) order by n.nspname,c.relname),'[]'::jsonb)::text from pg_class c join pg_namespace n on n.oid=c.relnamespace where c.relkind='r' and n.nspname in ('public','private','auth','storage','supabase_migrations');"
 CA_SHA='700723581420dd1ac98fd7e9ac529f0ef210eadcaf87fc868a3ad7d114c2f3b7'
+DEFAULT_ACL_SQL="select coalesce(jsonb_agg(jsonb_build_object('role',r.rolname,'schema',n.nspname,'type',d.defaclobjtype,'acl',d.defaclacl::text) order by r.rolname,n.nspname,d.defaclobjtype),'[]'::jsonb)::text from pg_default_acl d join pg_roles r on r.oid=d.defaclrole join pg_namespace n on n.oid=d.defaclnamespace where n.nspname in ('public','private');"
+STORAGE_DEFINITIONS_SQL="select json_build_object('rows',count(*),'definitions_fingerprint',md5(string_agg((to_jsonb(t)-'executed_at')::text,'' order by id)))::text from storage.migrations t;"
 
 def validate_url(value,ref,role):
     u=urlparse(value)
@@ -90,6 +92,8 @@ class Runner:
             keeper.stdin.write(inventory+'\n');keeper.stdin.flush()
             baseline=json.loads(keeper.stdout.readline())
             (self.private/'table-baseline.json').write_text(json.dumps(baseline))
+            for query,name in [(DEFAULT_ACL_SQL,'default-acl.json'),(STORAGE_DEFINITIONS_SQL,'storage-migration-definitions.json')]:
+                keeper.stdin.write(query+'\n');keeper.stdin.flush();(self.private/name).write_text(keeper.stdout.readline().strip())
             managed={}
             for entry in baseline:
                 schema,table=entry['schema'],entry['table']
@@ -123,6 +127,8 @@ class Runner:
     def restore(self):
         pre=json.loads(self.sql("select json_build_object('role',current_user,'app_tables',(select count(*) from pg_tables where schemaname in ('public','private')),'auth_users',(select count(*) from auth.users),'storage_objects',(select count(*) from storage.objects))::text;",source=False))
         if pre['role']!='flowbiz_restore_test' or any(pre[k] for k in ['app_tables','auth_users','storage_objects']):raise RuntimeError('Approved TEST is not empty; restore refused')
+        if json.loads(self.sql(DEFAULT_ACL_SQL,source=False))!=json.loads((self.private/'default-acl.json').read_text()):raise RuntimeError('Supabase default privileges differ; review required')
+        self.proof['supabase_default_privileges_identical']=True
         for name,expected in self.proof['database_sha256'].items():
             if hashlib.sha256((self.private/name).read_bytes()).hexdigest()!=expected:raise RuntimeError('Dump integrity check failed')
         archive='/work/private/application.dump'
@@ -131,6 +137,7 @@ class Runner:
         lines=[]
         for line in listing.splitlines():
             if any(re.search(r' SCHEMA - '+re.escape(schema)+r' ',line) for schema in existing):continue
+            if ' DEFAULT ACL ' in line:continue
             lines.append(line)
         (self.private/'application-list.txt').write_text('\n'.join(lines)+'\n')
         for section in ['pre-data','data','post-data']:
@@ -155,13 +162,17 @@ class Runner:
         target=json.loads(self.sql(INVENTORY_SQL,source=False))
         target_map={(x['schema'],x['table']):x for x in target}
         diff=[]
+        platform_diff=[]
         for row in baseline:
             actual=target_map.get((row['schema'],row['table']))
             if actual is None or actual['rows']!=row['rows'] or actual['fingerprint']!=row['fingerprint']:
+                if (row['schema'],row['table'])==('storage','migrations') and actual and actual['rows']==row['rows'] and json.loads(self.sql(STORAGE_DEFINITIONS_SQL,source=False))==json.loads((self.private/'storage-migration-definitions.json').read_text()):
+                    platform_diff.append({'source':row,'target':actual,'reason':'Supabase migration executed_at differs; id/name/hash definitions identical'})
+                    continue
                 diff.append({'source':row,'target':actual})
         (self.private/'table-target.json').write_text(json.dumps(target))
-        (self.private/'table-reconciliation.json').write_text(json.dumps({'tables_checked':len(baseline),'differences':diff},indent=2))
-        self.proof.update({'database_restore_executed':True,'tables_checked':len(baseline),'table_differences':len(diff),'database_restore_reconciled':not diff})
+        (self.private/'table-reconciliation.json').write_text(json.dumps({'tables_checked':len(baseline),'unexplained_differences':diff,'platform_metadata_differences':platform_diff},indent=2))
+        self.proof.update({'database_restore_executed':True,'tables_checked':len(baseline),'table_differences':len(diff)+len(platform_diff),'unexplained_table_differences':len(diff),'platform_metadata_difference_count':len(platform_diff),'database_restore_reconciled':not diff,'all_table_fingerprints_identical':not diff and not platform_diff})
         if diff:raise RuntimeError('Actual restored database reconciliation differs; see private evidence')
         self.proof['status']='DATABASE_RESTORE_RECONCILED_POD_AND_BROWSER_PENDING'
 

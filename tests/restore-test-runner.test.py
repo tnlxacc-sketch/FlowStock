@@ -19,10 +19,12 @@ class RunnerTests(unittest.TestCase):
         expected=hashlib.sha256(archive.read_bytes()).hexdigest();r.proof={'database_sha256':{'application.dump':expected},'full_system_uat_passed':False}
         if tampered:archive.write_bytes(b'changed')
         baseline=[{'schema':'public','table':'example','rows':1,'fingerprint':'fixture'}];(r.private/'table-baseline.json').write_text(json.dumps(baseline));(r.private/'managed-data.json').write_text('{}')
+        (r.private/'default-acl.json').write_text('[]');(r.private/'storage-migration-definitions.json').write_text('{}')
         def sql(q,source=True):
             r.calls.append(('sql',q,source))
             if "'app_tables'" in q:return json.dumps({'role':'flowbiz_restore_test','app_tables':int(occupied),'auth_users':0,'storage_objects':0})
             if 'json_agg(nspname)' in q:return '["public","private"]'
+            if q==runner.DEFAULT_ACL_SQL:return '[]'
             return json.dumps(baseline)
         def pg(tool,args,source=True,stdin=None):
             r.calls.append((tool,args,source))
@@ -42,6 +44,20 @@ class RunnerTests(unittest.TestCase):
                 r=self.restore_fixture(d,occupied,tampered)
                 with self.assertRaises(RuntimeError):r.restore()
                 self.assertFalse(any(c[0]=='pg_restore' for c in r.calls))
+    def test_only_verified_storage_migration_execution_time_difference_is_classified(self):
+        for equal_definitions in [True,False]:
+            with self.subTest(equal_definitions=equal_definitions),tempfile.TemporaryDirectory() as d:
+                r=self.restore_fixture(d);baseline=json.loads((r.private/'table-baseline.json').read_text());baseline.append({'schema':'storage','table':'migrations','rows':74,'fingerprint':'source-time'})
+                (r.private/'table-baseline.json').write_text(json.dumps(baseline));original_sql=r.sql
+                def sql(q,source=True):
+                    if q==runner.INVENTORY_SQL:return json.dumps([baseline[0],{**baseline[1],'fingerprint':'test-time'}])
+                    if q==runner.STORAGE_DEFINITIONS_SQL:return '{}' if equal_definitions else '{"changed":true}'
+                    return original_sql(q,source)
+                r.sql=sql
+                if equal_definitions:
+                    r.restore();self.assertEqual(r.proof['platform_metadata_difference_count'],1);self.assertFalse(r.proof['all_table_fingerprints_identical']);self.assertTrue(r.proof['database_restore_reconciled'])
+                else:
+                    with self.assertRaises(RuntimeError):r.restore()
     def test_source_and_target_identity(self):
         src='postgresql://flowbiz_backup_test.ifanefgaiuzkbjtttiqn:placeholder@aws-0-ap-southeast-1.pooler.supabase.com:5432/postgres?sslmode=verify-full&connect_timeout=15'
         self.assertEqual(runner.validate_url(src,runner.SOURCE_REF,'flowbiz_backup_test'),src)
