@@ -135,10 +135,20 @@ class Runner:
         (self.private/'application-list.txt').write_text('\n'.join(lines)+'\n')
         for section in ['pre-data','data','post-data']:
             self.pg('pg_restore',['--use-list','/work/private/application-list.txt','--section',section,'--no-owner','--file','/work/private/'+section+'.sql',archive],source=False)
+        post_path=self.private/'post-data.sql'
+        post_text=post_path.read_text()
+        auth_fk=re.findall(r'ALTER TABLE ONLY [^;]+;',post_text)
+        auth_fk=[s for s in auth_fk if 'REFERENCES auth.users' in s]
+        expected_fk=re.findall(r'ALTER TABLE ONLY [^;]+;',Path(__file__).with_name('setup-restore-test-auth-fk.sql').read_text())
+        normalize=lambda values:sorted(' '.join(value.split()) for value in values)
+        if len(auth_fk)!=14 or normalize(auth_fk)!=normalize(expected_fk):raise RuntimeError('Source Auth foreign-key definition changed; review required')
+        for statement in auth_fk:post_text=post_text.replace(statement,'-- Auth foreign key restored by TEST-only fixed-command helper.')
+        post_path.write_text(post_text)
+        (self.private/'restore-auth-fk.sql').write_text('select private.flowbiz_restore_auth_fk_test();\n')
         bundle=json.loads((self.private/'managed-data.json').read_text())
         bundle_text=json.dumps(bundle)
         (self.private/'restore-managed.sql').write_text("select private.flowbiz_restore_managed_test(:'managed_bundle'::jsonb);\n")
-        args=['-X','-w','-qAt','--single-transaction','--set=ON_ERROR_STOP=1','--dbname',self.target,'--file','/work/private/pre-data.sql','--variable','managed_bundle='+bundle_text,'--file','/work/private/restore-managed.sql','--file','/work/private/data.sql','--file','/work/private/post-data.sql']
+        args=['-X','-w','-qAt','--single-transaction','--set=ON_ERROR_STOP=1','--dbname',self.target,'--file','/work/private/pre-data.sql','--variable','managed_bundle='+bundle_text,'--file','/work/private/restore-managed.sql','--file','/work/private/data.sql','--file','/work/private/post-data.sql','--file','/work/private/restore-auth-fk.sql']
         self.pg('psql',args,source=False)
         # Managed schema policies/triggers need postgres ownership; they are applied separately by the connector.
         baseline=json.loads((self.private/'table-baseline.json').read_text())

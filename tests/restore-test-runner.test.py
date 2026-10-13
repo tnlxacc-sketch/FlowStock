@@ -27,6 +27,8 @@ class RunnerTests(unittest.TestCase):
         def pg(tool,args,source=True,stdin=None):
             r.calls.append((tool,args,source))
             if '--list' in args:return '1; 2615 0 SCHEMA - public postgres\n2; 1259 0 TABLE public example postgres'
+            if tool=='pg_restore' and '--section' in args and args[args.index('--section')+1]=='post-data':
+                (r.private/'post-data.sql').write_text(Path(runner.__file__).with_name('setup-restore-test-auth-fk.sql').read_text())
             return '{}'
         r.sql=sql;r.pg=pg;return r
     def test_restore_uses_atomic_target_transaction_and_file_variable_substitution(self):
