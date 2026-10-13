@@ -1,0 +1,43 @@
+name: FlowBiz One Restore Network Preflight
+"on":
+  push:
+    branches: ["commercial/customer-isolated-deployment"]
+    paths: [".github/workflows/restore-network-preflight.yml"]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: flowbiz-restore-network-preflight
+  cancel-in-progress: false
+jobs:
+  network-preflight:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 3
+    steps:
+      - name: Check Supabase PostgreSQL session-pooler connectivity
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import json, socket, struct, ssl
+          host = 'aws-0-ap-southeast-1.pooler.supabase.com'
+          result = {'host': host, 'port': 5432, 'source_project': 'ifanefgaiuzkbjtttiqn', 'approved_test_project': 'avofysgyuthbixthugcp', 'credentials_used': False, 'sql_executed': False, 'restore_executed': False}
+          try:
+              addresses = socket.getaddrinfo(host, 5432, type=socket.SOCK_STREAM)
+              result['dns_resolved'] = bool(addresses)
+              with socket.create_connection((host, 5432), timeout=12) as conn:
+                  conn.settimeout(12)
+                  result['tcp_connected'] = True
+                  conn.sendall(struct.pack('!II', 8, 80877103))
+                  reply = conn.recv(1)
+                  result['postgres_ssl_supported'] = reply == b'S'
+                  if reply != b'S':
+                      raise RuntimeError('PostgreSQL endpoint did not accept TLS')
+                  with ssl.create_default_context().wrap_socket(conn, server_hostname=host) as secured:
+                      result['tls_verified'] = bool(secured.cipher())
+              print(json.dumps(result))
+          except Exception as exc:
+              result['error_type'] = type(exc).__name__
+              result['error'] = str(exc)
+              print(json.dumps(result))
+              raise SystemExit(1)
+          PY
