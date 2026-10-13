@@ -1,0 +1,44 @@
+name: FlowBiz One Actual Read-only Database Backup
+"on":
+  push:
+    branches: ["commercial/customer-isolated-deployment"]
+    paths: [".github/workflows/restore-test.yml", "scripts/restore-test-runner.py"]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: flowbiz-actual-restore-test
+  cancel-in-progress: false
+jobs:
+  backup:
+    if: github.ref == 'refs/heads/commercial/customer-isolated-deployment'
+    environment: flowbiz-restore-test
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Checkout exact tested commit
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - name: Validate scripts and safety tests
+        run: |
+          python3 -m py_compile scripts/restore-test-runner.py
+          python3 tests/restore-test-runner.test.py
+          node --test tests/restore-target-guard.test.mjs tests/backup-restore-safety.test.mjs
+          python3 tests/backup-archive.test.py
+      - name: Backup source using PostgreSQL 17 and encrypt private evidence
+        env:
+          SOURCE_DATABASE_URL: ${{ secrets.FLOWBIZ_SOURCE_DATABASE_URL }}
+          TARGET_DATABASE_URL: ${{ secrets.FLOWBIZ_TARGET_DATABASE_URL }}
+          BACKUP_ENCRYPTION_KEY: ${{ secrets.FLOWBIZ_BACKUP_ENCRYPTION_KEY }}
+          FLOWBIZ_WORK_DIRECTORY: ${{ runner.temp }}/flowbiz-private-work
+        run: python3 scripts/restore-test-runner.py
+      - name: Retain encrypted backup and checksums only
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: FlowBiz-One-encrypted-backup-${{ github.run_id }}
+          path: |
+            ${{ runner.temp }}/flowbiz-private-work/FlowBizOne-backup.tar.gz.enc
+            ${{ runner.temp }}/flowbiz-private-work/artifact-sha256.txt
+            ${{ runner.temp }}/flowbiz-private-work/artifact-hmac-sha256.txt
+          if-no-files-found: error
+          retention-days: 7
