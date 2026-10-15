@@ -1,0 +1,46 @@
+name: FlowBiz One Restored TEST Auth API Financial POD UAT
+"on":
+  push:
+    branches: ["commercial/customer-isolated-deployment"]
+    paths:
+      - ".github/workflows/restore-api-uat.yml"
+      - "scripts/restore-api-uat.py"
+      - "scripts/setup-restore-test-uat.sql"
+      - "tests/restore-api-uat.test.py"
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: flowbiz-restored-api-uat
+  cancel-in-progress: false
+jobs:
+  uat:
+    if: github.ref == 'refs/heads/commercial/customer-isolated-deployment'
+    environment: flowbiz-restore-test
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Checkout exact TEST UAT commit
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - name: Check Python syntax
+        run: |
+          python3 -m py_compile scripts/restore-api-uat.py
+          python3 tests/restore-api-uat.test.py
+      - name: Execute real restored TEST API UAT
+        env:
+          SOURCE_DATABASE_URL: ${{ secrets.FLOWBIZ_SOURCE_DATABASE_URL }}
+          TARGET_DATABASE_URL: ${{ secrets.FLOWBIZ_TARGET_DATABASE_URL }}
+          BACKUP_ENCRYPTION_KEY: ${{ secrets.FLOWBIZ_BACKUP_ENCRYPTION_KEY }}
+          FLOWBIZ_WORK_DIRECTORY: ${{ runner.temp }}/flowbiz-api-uat-private
+        run: python3 scripts/restore-api-uat.py
+      - name: Retain encrypted UAT proof only
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: FlowBiz-One-encrypted-API-UAT-${{ github.run_id }}
+          path: |
+            ${{ runner.temp }}/flowbiz-api-uat-private/FlowBizOne-backup.tar.gz.enc
+            ${{ runner.temp }}/flowbiz-api-uat-private/artifact-sha256.txt
+            ${{ runner.temp }}/flowbiz-api-uat-private/artifact-hmac-sha256.txt
+          if-no-files-found: error
+          retention-days: 7
