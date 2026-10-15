@@ -27,6 +27,7 @@ class RestoreApiUatSafetyTests(unittest.TestCase):
         source=SCRIPT.read_text()
         self.assertIn("'full_system_uat_passed':False",source)
         self.assertIn("'api_smoke_passed':False",source)
+        self.assertIn('code in (200,206)',source)
         self.assertIn('except Exception as cleanup_exc:',source)
         self.assertIn("'temporary_auth_fixtures_remaining'",source)
 

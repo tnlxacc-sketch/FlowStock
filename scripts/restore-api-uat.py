@@ -50,7 +50,7 @@ def main():
             code,invoices,headers=http('/rest/v1/invoices?select=id,company_id&limit=1',token)
             expected=0 if i==7 else 1001
             count=next((v for k,v in headers.items() if k.lower()=='content-range'),'').split('/')[-1]
-            tenant_ok=code==200 and count==str(expected) and isinstance(invoices,list) and all(x['company_id']==(DEMO if i!=7 else 'afe215d3-428d-4d55-aaaf-dc339b55c29b') for x in invoices)
+            tenant_ok=code in (200,206) and count==str(expected) and isinstance(invoices,list) and all(x['company_id']==(DEMO if i!=7 else 'afe215d3-428d-4d55-aaaf-dc339b55c29b') for x in invoices)
             check('Tenant invoice access '+role,tenant_ok,{'status':code,'content_range_total':count,'rows_returned':len(invoices) if isinstance(invoices,list) else None,'expected_total':expected})
             code,kpis,_=http('/rest/v1/rpc/report_kpis',token,{'p_year':2026});check('Financial report RPC '+role,code==200 and kpis.get('finances',{}).get('invoices')==expected)
         admin=tokens.get('ADMIN')
@@ -86,4 +86,3 @@ def main():
         print(json.dumps({'status':r.proof['status'],'checks_passed':r.proof.get('checks_passed',0),'checks_total':r.proof.get('checks_total',len(checks)),'full_system_uat_passed':False}))
     if not r.proof.get('api_smoke_passed'):sys.exit(1)
 if __name__=='__main__':main()
-
