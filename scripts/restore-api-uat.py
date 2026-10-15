@@ -4,6 +4,7 @@
 This is not full browser or commercial-release certification.
 """
 import hashlib,hmac,json,os,sys,urllib.request,urllib.error
+from decimal import Decimal
 from pathlib import Path
 import importlib.util
 spec=importlib.util.spec_from_file_location('runner',Path(__file__).with_name('restore-test-runner.py'))
@@ -49,13 +50,17 @@ def main():
             code,invoices,headers=http('/rest/v1/invoices?select=id,company_id&limit=1',token)
             expected=0 if i==7 else 1001
             count=next((v for k,v in headers.items() if k.lower()=='content-range'),'').split('/')[-1]
-            check('Tenant invoice access '+role,code==200 and count==str(expected) and all(x['company_id']==(DEMO if i!=7 else 'afe215d3-428d-4d55-aaaf-dc339b55c29b') for x in invoices))
+            tenant_ok=code==200 and count==str(expected) and isinstance(invoices,list) and all(x['company_id']==(DEMO if i!=7 else 'afe215d3-428d-4d55-aaaf-dc339b55c29b') for x in invoices)
+            check('Tenant invoice access '+role,tenant_ok,{'status':code,'content_range_total':count,'rows_returned':len(invoices) if isinstance(invoices,list) else None,'expected_total':expected})
             code,kpis,_=http('/rest/v1/rpc/report_kpis',token,{'p_year':2026});check('Financial report RPC '+role,code==200 and kpis.get('finances',{}).get('invoices')==expected)
         admin=tokens.get('ADMIN')
         if admin:
             financial=json.loads(r.sql("select json_build_object('invoices',count(*),'revenue',sum(revenue),'product_cost',sum(product_cost),'freight_cost',sum(freight_cost),'other_cost',sum(other_cost),'contribution',sum(revenue-product_cost-freight_cost-other_cost))::text from public.invoices where company_id='"+DEMO+"' and extract(year from invoice_date)=2026;",source=False))
             code,kpis,_=http('/rest/v1/rpc/report_kpis',admin,{'p_year':2026});f=kpis.get('finances',{})
-            check('Invoice financial API equals restored SQL',code==200 and all(f.get(k)==financial[k] for k in ['invoices','revenue','product_cost','freight_cost','other_cost','contribution']),financial)
+            amount_keys=['revenue','product_cost','freight_cost','other_cost']
+            api_contribution=(Decimal(str(f.get('revenue',0)))-Decimal(str(f.get('product_cost',0)))-Decimal(str(f.get('freight_cost',0)))-Decimal(str(f.get('other_cost',0))))
+            financial_ok=code==200 and f.get('invoices')==financial['invoices'] and all(Decimal(str(f.get(k)))==Decimal(str(financial[k])) for k in amount_keys) and api_contribution==Decimal(str(financial['contribution']))
+            check('Invoice financial API equals restored SQL',financial_ok,{'sql':financial,'api_contribution':str(api_contribution)})
             code,balances,headers=http('/rest/v1/stock_balances?select=id,company_id,on_hand,allocated&limit=100',admin)
             check('Stock 45 rows and valid quantities',code==200 and len(balances)==45 and all(x['on_hand']>=0 and 0<=x['allocated']<=x['on_hand'] for x in balances))
             code,pod,_=http('/storage/v1/object/authenticated/'+POD,admin,binary=True)
@@ -81,3 +86,4 @@ def main():
         print(json.dumps({'status':r.proof['status'],'checks_passed':r.proof.get('checks_passed',0),'checks_total':r.proof.get('checks_total',len(checks)),'full_system_uat_passed':False}))
     if not r.proof.get('api_smoke_passed'):sys.exit(1)
 if __name__=='__main__':main()
+
